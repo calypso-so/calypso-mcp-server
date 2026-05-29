@@ -1,0 +1,22 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - calypsoApiKey
+    properties:
+      calypsoApiKey:
+        type: string
+        description: Your Calypso API key (must start with sk-)
+      calypsoApiBaseUrl:
+        type: string
+        description: Base URL for your AIcore OpenAI-compatible API (must end in /v1). Example: http://localhost:8000/v1
+  commandFunction: |
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        CALYPSO_API_KEY: config.calypsoApiKey,
+        CALYPSO_API_BASE_URL: config.calypsoApiBaseUrl
+      }
+    }) 
