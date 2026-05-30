@@ -1,5 +1,7 @@
 # Calypso RAG MCP Server
 
+[![smithery badge](https://smithery.ai/badge/multimodal-rag/calypso-mcp-server)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
+
 This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. It is a thin bridge to Calypso's OpenAI-compatible API and forwards every request to the `calypso-rag-agent` model.
 
 Docs: `https://docs.calypso.ms/`

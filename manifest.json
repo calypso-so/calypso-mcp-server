@@ -29,12 +29,7 @@
       }
     }
   },
-  "tools": [
-    {
-      "name": "calypso-rag-agent",
-      "description": "Query the Calypso RAG agent for grounded answers over the configured knowledge base."
-    }
-  ],
+  "tools_generated": true,
   "user_config": {
     "calypsoApiKey": {
       "type": "string",
