@@ -12,7 +12,7 @@ const optionalString = z
   .optional();
 
 export const calypsoConfigSchema = z.object({
-  apiKey: z.string().trim().min(1, "CALYPSO_API_KEY is required"),
+  apiKey: optionalString,
   apiBaseUrl: optionalString
     .pipe(z.string().url().endsWith("/v1").optional())
     .default(DEFAULT_CALYPSO_API_BASE_URL),
@@ -113,7 +113,7 @@ export function formatUsage(command = "calypso-mcp"): string {
     "  --version                   Show version",
     "",
     "Environment variables:",
-    "  CALYPSO_API_KEY             Required if --api-key is not provided",
+    "  CALYPSO_API_KEY             Required for upload/query tool calls",
     `  CALYPSO_API_BASE_URL        Optional, defaults to ${DEFAULT_CALYPSO_API_BASE_URL}`,
   ].join("\n");
 }

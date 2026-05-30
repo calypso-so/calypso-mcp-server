@@ -17,7 +17,7 @@ async function main() {
 
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [serverPath, "--api-key", "sk-smithery-smoke-test"],
+    args: [serverPath],
   });
 
   await client.connect(transport);

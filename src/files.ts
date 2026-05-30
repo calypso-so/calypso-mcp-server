@@ -111,6 +111,15 @@ function buildApiUrl(config: CalypsoRuntimeConfig, relativePath: string): string
   return new URL(normalizedPath, `${config.apiBaseUrl}/`).toString();
 }
 
+function requireApiKey(config: CalypsoRuntimeConfig): string {
+  const apiKey = String(config.apiKey || "").trim();
+  if (!apiKey) {
+    throw new Error("CALYPSO_API_KEY is required to call Calypso tools, but it is not configured.");
+  }
+
+  return apiKey;
+}
+
 async function parseResponseBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -155,7 +164,7 @@ async function requestJson<T>(
   init: RequestInit & { headers?: HeadersInit }
 ): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${config.apiKey}`);
+  headers.set("Authorization", `Bearer ${requireApiKey(config)}`);
 
   const response = await fetch(buildApiUrl(config, relativePath), {
     ...init,

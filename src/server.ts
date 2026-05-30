@@ -104,19 +104,35 @@ function buildResponsesMetadata(options: {
   return metadata;
 }
 
+function requireApiKey(config: CalypsoRuntimeConfig): string {
+  const apiKey = String(config.apiKey || "").trim();
+  if (!apiKey) {
+    throw new Error("CALYPSO_API_KEY is required to call Calypso tools, but it is not configured.");
+  }
+
+  return apiKey;
+}
+
 export function createCalypsoMcpServer(options: {
   config: CalypsoRuntimeConfig;
   packageInfo: PackageInfo;
 }): McpServer {
   const { config, packageInfo } = options;
+  let calypsoClient: OpenAI | null = null;
 
-  const calypsoClient = new OpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.apiBaseUrl,
-    defaultHeaders: {
-      "User-Agent": `${packageInfo.name}/${packageInfo.version} (Node.js/${process.versions.node})`,
-    },
-  });
+  function getCalypsoClient(): OpenAI {
+    if (!calypsoClient) {
+      calypsoClient = new OpenAI({
+        apiKey: requireApiKey(config),
+        baseURL: config.apiBaseUrl,
+        defaultHeaders: {
+          "User-Agent": `${packageInfo.name}/${packageInfo.version} (Node.js/${process.versions.node})`,
+        },
+      });
+    }
+
+    return calypsoClient;
+  }
 
   const server = new McpServer({
     name: packageInfo.name,
@@ -336,7 +352,7 @@ export function createCalypsoMcpServer(options: {
         // Calypso/AIcore accepts Responses fields that this SDK version does not
         // type yet (`conversation` and `previous_response_id`), so we narrow the
         // cast to the API boundary.
-        const response = await calypsoClient.responses.create(request as unknown as ResponseCreateParamsStreaming);
+        const response = await getCalypsoClient().responses.create(request as unknown as ResponseCreateParamsStreaming);
         const result = await processStreamingResponse(response);
         if (result.responseId) {
           previousResponseId = result.responseId;
