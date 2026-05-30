@@ -24,9 +24,14 @@ async function main() {
 
   try {
     const toolsResult = await client.listTools();
-    const hasRagAgent = toolsResult.tools.some((tool) => tool.name === "calypso-rag-agent");
-    if (!hasRagAgent) {
-      throw new Error("Smoke test failed: calypso-rag-agent tool was not registered");
+    const requiredTools = [
+      "calypso-rag-agent",
+      "calypso-upload-agent-file",
+      "calypso-upload-knowledge-file",
+    ];
+    const missingTools = requiredTools.filter((toolName) => !toolsResult.tools.some((tool) => tool.name === toolName));
+    if (missingTools.length > 0) {
+      throw new Error(`Smoke test failed: missing tool registrations for ${missingTools.join(", ")}`);
     }
 
     console.log("Smithery stdio smoke test passed.");

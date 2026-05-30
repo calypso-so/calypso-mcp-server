@@ -1,0 +1,155 @@
+{
+  "serverInfo": {
+    "title": "Calypso MCP",
+    "description": "Multimodal RAG for source-backed AI answers through the Calypso Responses API.",
+    "websiteUrl": "https://docs.calypso.ms/"
+  },
+  "tools": [
+    {
+      "name": "calypso-rag-agent",
+      "title": "Calypso RAG Agent",
+      "description": "Query the Calypso RAG agent for grounded answers over the configured knowledge base. Use `/new` as the prompt to reset the current conversation and start a fresh thread. When `fileIds` are provided, the MCP uses `rag_policy` retrieval semantics for agent-store files.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Your request. Include context, constraints, and desired output."
+          },
+          "fileIds": {
+            "type": "array",
+            "description": "Optional uploaded agent-store `file_id` values to attach with retrieval-backed RAG semantics.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      },
+      "annotations": {
+        "title": "Calypso RAG Agent",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "optional"
+      }
+    },
+    {
+      "name": "calypso-upload-agent-file",
+      "title": "Calypso Upload Agent File",
+      "description": "Upload a file into the agent store and return a compatible OpenAI-style `file_id`. This tool sends `purpose=user_data`, targets the selected RAG agent with `target_model`, and can wait until the file is ready for `rag_policy` retrieval.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Display filename for the uploaded file."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "Content type for the uploaded file."
+          },
+          "contentBase64": {
+            "type": "string",
+            "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Local file path when the MCP process can read from disk."
+          },
+          "targetModel": {
+            "type": "string",
+            "description": "Optional RAG agent id. Defaults to `calypso-rag-agent`."
+          },
+          "waitForReady": {
+            "type": "boolean",
+            "description": "If true, wait until the uploaded file is RAG-ready before returning."
+          }
+        },
+        "required": [
+          "filename",
+          "mimeType"
+        ]
+      },
+      "annotations": {
+        "title": "Calypso Upload Agent File",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "optional"
+      }
+    },
+    {
+      "name": "calypso-upload-knowledge-file",
+      "title": "Calypso Upload Knowledge File",
+      "description": "Upload a file into the durable knowledge store and indexing pipeline. This tool returns knowledge-file and task metadata and should be used for corpus ingestion rather than direct per-turn chat attachment.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Display filename for the uploaded knowledge file."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "Content type for the uploaded knowledge file."
+          },
+          "contentBase64": {
+            "type": "string",
+            "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Local file path when the MCP process can read from disk."
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional human-readable title stored with the knowledge file."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Optional tags for knowledge-store organization.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata object serialized with the upload.",
+            "additionalProperties": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Optional idempotency key for durable upload retries."
+          },
+          "waitForIndexing": {
+            "type": "boolean",
+            "description": "If true, wait until indexing reaches a terminal ready state before returning."
+          }
+        },
+        "required": [
+          "filename",
+          "mimeType"
+        ]
+      },
+      "annotations": {
+        "title": "Calypso Upload Knowledge File",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "optional"
+      }
+    }
+  ]
+}

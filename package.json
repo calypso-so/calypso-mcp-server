@@ -1,6 +1,6 @@
 {
   "name": "calypso-mcp",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "MCP server for Calypso (AIcore) agents via OpenAI-compatible API.",
   "main": "dist/index.js",
   "homepage": "https://github.com/calypso-so/calypso-mcp-server",
@@ -28,6 +28,7 @@
     "build:mcpb": "npm run build && npm run validate:mcpb && mcpb pack . server.mcpb",
     "smoke:stdio": "node \"scripts/smoke-stdio.mjs\"",
     "validate:smithery": "npm run build && npm run smoke:stdio && npm run validate:mcpb",
+    "publish:smithery": "npm run build:mcpb && node \"scripts/publish-smithery.mjs\"",
     "test": "echo \"No tests specified\"",
     "start": "node dist/index.js",
     "lint": "echo \"No linting configured\"",
@@ -55,6 +56,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
+    "@smithery/api": "^0.66.0",
     "@types/node": "^20.10.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.2"

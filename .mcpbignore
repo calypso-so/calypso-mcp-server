@@ -8,6 +8,7 @@ examples/
 Dockerfile
 tsconfig.json
 smithery.yaml
+smithery.server-card.json
 install.sh
 run-server.sh
 .env

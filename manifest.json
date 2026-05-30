@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "calypso-mcp",
   "display_name": "Calypso MCP",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "Calypso RAG MCP server for source-backed answers via the Calypso Responses API.",
   "author": {
     "name": "Calypso"
