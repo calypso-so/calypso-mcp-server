@@ -43,14 +43,14 @@ echo "   env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=https://api.calypso.so/
 echo ""
 echo "3. Install globally and run with npx:"
 echo "   npm install -g ."
-echo "   npx calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1"
+echo "   npx @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1"
 echo ""
 echo "4. To use with Claude Desktop, add the following to your claude_desktop_config.json:"
 echo '{
   "mcpServers": {
     "calypso": {
       "command": "npx",
-      "args": ["-y", "calypso-mcp", "--api-key", "sk-...", "--api-base-url", "https://api.calypso.so/v1"]
+      "args": ["-y", "@calypso-rag/calypso-mcp", "--api-key", "sk-...", "--api-base-url", "https://api.calypso.so/v1"]
     }
   }
 }'
@@ -58,4 +58,4 @@ echo ""
 echo "5. To use with Cursor, add a new MCP server with:"
 echo "   - Name: calypso-mcp"
 echo "   - Type: command"
-echo "   - Command: npx -y calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1"
+echo "   - Command: npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1"

@@ -85,76 +85,12 @@ npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.caly
 
 Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible deployment. The cloud default does not need an override.
 
-## Publish-readiness validation
-
-Before publishing to Smithery, run:
-
-```bash
-npm run validate:smithery
-```
-
-That validation flow does two things:
-
-- builds the package
-- runs a local stdio smoke test that launches the built server and verifies that `calypso-rag-agent` is registered
-
-You can also run the smoke test directly after a build:
-
-```bash
-npm run build
-npm run smoke:stdio
-```
-
-To build the local Smithery / MCPB bundle:
-
-```bash
-npm run build:mcpb
-```
-
-That produces `server.mcpb` in the repo root. You can then publish it with Smithery:
-
-```bash
-smithery mcp publish ./server.mcpb -n multimodal-rag/calypso-mcp-server
-```
-
-To publish the bundle together with the capabilities metadata used by the Smithery UI:
-
-```bash
-SMITHERY_API_KEY=... npm run publish:smithery -- --name multimodal-rag/calypso-mcp-server
-```
-
-That command rebuilds `server.mcpb` and uploads it with the server card from `smithery.server-card.json`, so Smithery can render the `calypso-rag-agent` capability with its input schema.
-
-## Publish to npm
-
-This package is intended to be published publicly as:
-
-```bash
-@calypso-rag/calypso-mcp
-```
-
-Recommended release flow:
-
-```bash
-npm login
-npm whoami
-npm run build
-npm publish --access public
-```
-
-After publishing, clients can launch it with:
-
-```bash
-npx -y @calypso-rag/calypso-mcp
-```
-
 ## Troubleshooting
 
 - **Missing API key**: provide `--api-key` or `CALYPSO_API_KEY`
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
 - **Smithery launch mismatch**: use the packaged `npx -y @calypso-rag/calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
-- **Missing `server.mcpb`**: run `npm run build:mcpb` before calling `smithery mcp publish`
 
 ## Available tools
 
