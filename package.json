@@ -24,8 +24,10 @@
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
     "typecheck": "tsc --noEmit",
+    "validate:mcpb": "mcpb validate manifest.json",
+    "build:mcpb": "npm run build && npm run validate:mcpb && mcpb pack . server.mcpb",
     "smoke:stdio": "node \"scripts/smoke-stdio.mjs\"",
-    "validate:smithery": "npm run build && npm run smoke:stdio",
+    "validate:smithery": "npm run build && npm run smoke:stdio && npm run validate:mcpb",
     "test": "echo \"No tests specified\"",
     "start": "node dist/index.js",
     "lint": "echo \"No linting configured\"",
@@ -52,6 +54,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^20.10.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.2"

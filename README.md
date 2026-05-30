@@ -101,12 +101,25 @@ npm run build
 npm run smoke:stdio
 ```
 
+To build the local Smithery / MCPB bundle:
+
+```bash
+npm run build:mcpb
+```
+
+That produces `server.mcpb` in the repo root. You can then publish it with Smithery:
+
+```bash
+smithery mcp publish ./server.mcpb -n multimodal-rag/calypso-mcp-server
+```
+
 ## Troubleshooting
 
 - **Missing API key**: provide `--api-key` or `CALYPSO_API_KEY`
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
 - **Smithery launch mismatch**: use the packaged `npx -y calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
+- **Missing `server.mcpb`**: run `npm run build:mcpb` before calling `smithery mcp publish`
 
 ## Available tools
 

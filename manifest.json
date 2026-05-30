@@ -1,0 +1,61 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "calypso-mcp",
+  "display_name": "Calypso MCP",
+  "version": "1.0.22",
+  "description": "Calypso RAG MCP server for source-backed answers via the Calypso Responses API.",
+  "author": {
+    "name": "Calypso"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calypso-so/calypso-mcp-server.git"
+  },
+  "homepage": "https://github.com/calypso-so/calypso-mcp-server",
+  "documentation": "https://docs.calypso.ms/",
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "CALYPSO_API_KEY": "${user_config.calypsoApiKey}",
+        "CALYPSO_API_BASE_URL": "${user_config.calypsoApiBaseUrl}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "calypso-rag-agent",
+      "description": "Query the Calypso RAG agent for grounded answers over the configured knowledge base."
+    }
+  ],
+  "user_config": {
+    "calypsoApiKey": {
+      "type": "string",
+      "title": "Calypso API Key",
+      "description": "API key used to access the Calypso OpenAI-compatible Responses API.",
+      "required": true,
+      "sensitive": true
+    },
+    "calypsoApiBaseUrl": {
+      "type": "string",
+      "title": "Calypso API Base URL",
+      "description": "Optional override for self-hosted Calypso-compatible deployments. Must end in /v1.",
+      "default": "https://api.calypso.so/v1",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  }
+}

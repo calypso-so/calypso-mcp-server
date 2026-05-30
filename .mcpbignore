@@ -1,0 +1,16 @@
+.git
+.gitignore
+.cursor
+.DS_Store
+src/
+scripts/
+examples/
+Dockerfile
+tsconfig.json
+smithery.yaml
+install.sh
+run-server.sh
+.env
+.env.*
+*.mcpb
+npm-debug.log*
