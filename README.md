@@ -49,13 +49,13 @@ Configuration precedence:
 ## Run with npx
 
 ```bash
-npx -y calypso-mcp --api-key "sk-..."
+npx -y @calypso-rag/calypso-mcp --api-key "sk-..."
 ```
 
 ## Run with environment variables
 
 ```bash
-env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" npx -y calypso-mcp
+env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" npx -y @calypso-rag/calypso-mcp
 ```
 
 ## Configure in Cursor
@@ -63,7 +63,7 @@ env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" np
 Add a new MCP server (command type) like:
 
 ```bash
-npx -y calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
+npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
 
 ## Smithery
@@ -80,7 +80,7 @@ Smithery user config:
 The Smithery launch path is equivalent to:
 
 ```bash
-npx -y calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
+npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
 
 Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible deployment. The cloud default does not need an override.
@@ -125,12 +125,35 @@ SMITHERY_API_KEY=... npm run publish:smithery -- --name multimodal-rag/calypso-m
 
 That command rebuilds `server.mcpb` and uploads it with the server card from `smithery.server-card.json`, so Smithery can render the `calypso-rag-agent` capability with its input schema.
 
+## Publish to npm
+
+This package is intended to be published publicly as:
+
+```bash
+@calypso-rag/calypso-mcp
+```
+
+Recommended release flow:
+
+```bash
+npm login
+npm whoami
+npm run build
+npm publish --access public
+```
+
+After publishing, clients can launch it with:
+
+```bash
+npx -y @calypso-rag/calypso-mcp
+```
+
 ## Troubleshooting
 
 - **Missing API key**: provide `--api-key` or `CALYPSO_API_KEY`
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
-- **Smithery launch mismatch**: use the packaged `npx -y calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
+- **Smithery launch mismatch**: use the packaged `npx -y @calypso-rag/calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
 - **Missing `server.mcpb`**: run `npm run build:mcpb` before calling `smithery mcp publish`
 
 ## Available tools
