@@ -11,7 +11,7 @@ if [ ! -d "./dist" ]; then
 fi
 
 # Check if CALYPSO_API_KEY is set
-if [ -z "$CALYPSO_API_KEY" ]; then
+if [[ " $* " != *" --api-key "* ]] && [ -z "$CALYPSO_API_KEY" ]; then
     # Try to load from .env file
     if [ -f ".env" ]; then
         export $(grep -v '^#' .env | xargs)
@@ -28,4 +28,4 @@ fi
 
 # Run the server
 echo "Running server..."
-node dist/index.js 
+node dist/index.js "$@"

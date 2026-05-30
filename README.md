@@ -33,7 +33,24 @@ Environment variables:
 - `CALYPSO_API_KEY` (required)
 - `CALYPSO_API_BASE_URL` (optional, default `https://api.calypso.so/v1`)
 
+CLI flags:
+
+- `--api-key`
+- `--api-base-url`
+
+Configuration precedence:
+
+1. CLI flags / Smithery-provided command arguments
+2. Environment variables
+3. Default base URL (`https://api.calypso.so/v1`)
+
 ## Run with npx
+
+```bash
+npx -y calypso-mcp --api-key "sk-..."
+```
+
+## Run with environment variables
 
 ```bash
 env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" npx -y calypso-mcp
@@ -44,8 +61,52 @@ env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" np
 Add a new MCP server (command type) like:
 
 ```bash
-env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=https://api.calypso.so/v1 npx -y calypso-mcp
+npx -y calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
+
+## Smithery
+
+This repo includes a [`smithery.yaml`](./smithery.yaml) manifest that launches the published package with CLI flags instead of relying on a prebuilt local `dist/` directory.
+
+Smithery user config:
+
+- `calypsoApiKey` (required)
+- `calypsoApiBaseUrl` (optional, defaults to `https://api.calypso.so/v1`)
+
+The Smithery launch path is equivalent to:
+
+```bash
+npx -y calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
+```
+
+Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible deployment. The cloud default does not need an override.
+
+## Publish-readiness validation
+
+Before publishing to Smithery, run:
+
+```bash
+npm run validate:smithery
+```
+
+That validation flow does two things:
+
+- builds the package
+- runs a local stdio smoke test that launches the built server and verifies that `calypso-rag-agent` is registered
+
+You can also run the smoke test directly after a build:
+
+```bash
+npm run build
+npm run smoke:stdio
+```
+
+## Troubleshooting
+
+- **Missing API key**: provide `--api-key` or `CALYPSO_API_KEY`
+- **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
+- **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
+- **Smithery launch mismatch**: use the packaged `npx -y calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
 
 ## Available tools
 
@@ -80,4 +141,4 @@ Notes:
 
 ## Tips
 
- - **Start over**: use `/new` to reset the MCP conversation (new `conversation_id` + cleared response chain).
+- **Start over**: use `/new` to reset the MCP conversation (new `conversation_id` + cleared response chain).

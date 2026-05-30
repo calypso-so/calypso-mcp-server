@@ -7,16 +7,26 @@ startCommand:
     properties:
       calypsoApiKey:
         type: string
-        description: Your Calypso API key (must start with sk-)
+        title: Calypso API Key
+        description: API key used to access the Calypso OpenAI-compatible Responses API.
+        examples:
+          - sk-...
       calypsoApiBaseUrl:
         type: string
-        description: Base URL for your AIcore OpenAI-compatible API (must end in /v1). Example: http://localhost:8000/v1
+        title: Calypso API Base URL
+        description: Optional override for self-hosted Calypso-compatible deployments. Defaults to the Calypso cloud API and must end in /v1.
+        default: https://api.calypso.so/v1
+        examples:
+          - https://api.calypso.so/v1
+          - https://your-aicore-host.example.com/v1
   commandFunction: |
     (config) => ({
-      command: 'node',
-      args: ['dist/index.js'],
-      env: {
-        CALYPSO_API_KEY: config.calypsoApiKey,
-        CALYPSO_API_BASE_URL: config.calypsoApiBaseUrl
-      }
+      command: 'npx',
+      args: [
+        '-y',
+        'calypso-mcp',
+        '--api-key',
+        config.calypsoApiKey,
+        ...(config.calypsoApiBaseUrl ? ['--api-base-url', config.calypsoApiBaseUrl] : [])
+      ]
     }) 
