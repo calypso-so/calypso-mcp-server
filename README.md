@@ -66,6 +66,66 @@ Add a new MCP server (command type) like:
 npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
 
+## Configure in Claude Desktop
+
+### 1. Open Claude Desktop MCP config
+
+In Claude Desktop:
+
+`Claude -> Settings -> Developer -> Edit Config`
+
+On macOS, the file is usually:
+
+```bash
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+Claude Desktop uses `claude_desktop_config.json` for desktop MCP servers. Claude Code uses separate config locations such as `~/.claude.json` or project-level `.mcp.json`.
+
+### 2. Add the Calypso MCP server
+
+Paste this into `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "Calypso Multimodal RAG": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@calypso-rag/calypso-mcp"
+      ],
+      "env": {
+        "CALYPSO_API_KEY": "sk-your-calypso-api-key",
+        "CALYPSO_API_BASE_URL": "https://api.calypso.so/v1"
+      }
+    }
+  }
+}
+```
+
+Replace:
+
+- `sk-your-calypso-api-key`
+
+with your real Calypso API key.
+
+### 3. Restart Claude Desktop fully
+
+Fully quit Claude Desktop, then reopen it.
+
+Do not only close the window. On macOS:
+
+```bash
+Cmd + Q
+```
+
+After restart, the MCP should appear in Claude with these tools available:
+
+- `calypso-rag-agent`
+- `calypso-upload-agent-file`
+- `calypso-upload-knowledge-file`
+
 ## Smithery
 
 This repo includes a [`smithery.yaml`](./smithery.yaml) manifest that launches the published package with CLI flags instead of relying on a prebuilt local `dist/` directory.
