@@ -16,7 +16,7 @@ Docs: `https://docs.calypso.ms/`
 - **`calypso-upload-agent-file`**: uploads a file into the agent store and returns a compatible OpenAI-style `file_id`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
 
-The server also publishes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
+The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
 
 ## Catalog & Trust
 
@@ -145,9 +145,7 @@ After restart, the MCP should appear in Claude with these tools available:
 
 ## Smithery
 
-This repo includes a [`smithery.yaml`](./smithery.yaml) manifest that launches the published package with CLI flags instead of relying on a prebuilt local `dist/` directory.
-
-For local `.mcpb` publishing, Smithery capabilities are populated from a full MCP-style server card. This repo keeps that metadata in [`smithery.server-card.json`](./smithery.server-card.json) and publishes it with [`scripts/publish-smithery.mjs`](./scripts/publish-smithery.mjs), because MCPB `manifest.json` does not support the full `inputSchema` shape Smithery expects for capabilities.
+The server is available on [Smithery](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server) and launches through the same `npx` package path used by desktop clients.
 
 Smithery user config:
 
