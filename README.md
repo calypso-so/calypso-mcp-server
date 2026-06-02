@@ -10,7 +10,7 @@ This MCP server exposes the **Calypso Multimodal RAG agent** to MCP clients such
 
 Instead of wiring each agent or workflow to a one-off document search stack, use this MCP as the agent-facing entry point to one reusable answer layer: upload source material once, retrieve across text and visual content, and return answers with evidence users can verify.
 
-Docs: `https://docs.calypso.so`
+Docs: [https://docs.calypso.so](https://docs.calypso.so)
 
 ## What you get
 
