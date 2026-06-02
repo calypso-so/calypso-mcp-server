@@ -1,6 +1,6 @@
 {
   "name": "@calypso-rag/calypso-mcp",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "description": "MCP server for Calypso (AIcore) agents via OpenAI-compatible API.",
   "main": "dist/index.js",
   "homepage": "https://github.com/calypso-so/calypso-mcp-server",
