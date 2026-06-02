@@ -8,7 +8,7 @@
 
 This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. It is a thin bridge to Calypso's OpenAI-compatible API for grounded answers, agent-store uploads, and durable knowledge ingestion.
 
-Docs: `https://docs.calypso.ms/`
+Docs: `https://docs.calypso.so`
 
 ## What you get
 
