@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@calypso-rag/calypso-mcp` will be documented in this file.
+All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
 ## Unreleased
 

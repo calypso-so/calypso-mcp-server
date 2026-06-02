@@ -24,7 +24,7 @@ startCommand:
       command: 'npx',
       args: [
         '-y',
-        '@calypso-rag/calypso-mcp',
+        '@calypsohq/multimodal-rag-mcp-server',
         '--api-key',
         config.calypsoApiKey,
         ...(config.calypsoApiBaseUrl ? ['--api-base-url', config.calypsoApiBaseUrl] : [])

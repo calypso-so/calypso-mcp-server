@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest published version of `@calypso-rag/calypso-mcp`.
+Security fixes are provided for the latest published version of `@calypsohq/multimodal-rag-mcp-server`.
 
 ## Reporting a Vulnerability
 

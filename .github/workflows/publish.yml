@@ -28,6 +28,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify npm package scope
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          if [ "${PACKAGE_NAME}" != "@calypsohq/multimodal-rag-mcp-server" ]; then
+            echo "Unexpected package name: ${PACKAGE_NAME}"
+            echo "Expected @calypsohq/multimodal-rag-mcp-server"
+            exit 1
+          fi
+
       - name: Check formatting
         run: npm run format:check
 

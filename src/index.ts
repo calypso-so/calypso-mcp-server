@@ -19,7 +19,7 @@ type PackageInfo = {
 };
 
 const FALLBACK_PACKAGE_INFO: PackageInfo = {
-  name: "@calypso-rag/calypso-mcp",
+  name: "@calypsohq/multimodal-rag-mcp-server",
   version: "0.0.0",
 };
 
@@ -74,7 +74,7 @@ async function main() {
     if (error instanceof Error) {
       console.error(`Error: ${error.message}`);
       console.error(
-        `Example: env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=${DEFAULT_CALYPSO_API_BASE_URL} npx -y @calypso-rag/calypso-mcp`,
+        `Example: env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=${DEFAULT_CALYPSO_API_BASE_URL} npx -y @calypsohq/multimodal-rag-mcp-server`,
       );
       console.error("");
       console.error(formatUsage());

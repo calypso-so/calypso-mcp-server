@@ -1,12 +1,12 @@
-# Calypso RAG MCP Server
+# Calypso Multimodal RAG MCP Server
 
 [![smithery badge](https://smithery.ai/badge/multimodal-rag/calypso-mcp-server)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/calypso-so/calypso-mcp-server)](https://archestra.ai/mcp-catalog/calypso-so__calypso-mcp-server)
-[![npm version](https://img.shields.io/npm/v/@calypso-rag/calypso-mcp)](https://www.npmjs.com/package/@calypso-rag/calypso-mcp)
+[![npm version](https://img.shields.io/npm/v/@calypsohq/multimodal-rag-mcp-server)](https://www.npmjs.com/package/@calypsohq/multimodal-rag-mcp-server)
 [![License](https://img.shields.io/github/license/calypso-so/calypso-mcp-server)](./LICENSE)
 [![CI](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml)
 
-This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. Calypso is a hosted, Gemini File Search-powered multimodal RAG layer for grounded answers across PDFs, docs, screenshots, charts, diagrams, help content, FAQs, images, and internal knowledge.
+This MCP server exposes the **Calypso Multimodal RAG agent** to MCP clients such as Cursor and Claude Desktop. Calypso is a hosted, Gemini File Search-powered multimodal RAG layer for grounded answers across PDFs, docs, screenshots, charts, diagrams, help content, FAQs, images, and internal knowledge.
 
 Instead of wiring each agent or workflow to a one-off document search stack, use this MCP as the agent-facing entry point to one reusable answer layer: upload source material once, retrieve across text and visual content, and return answers with evidence users can verify.
 
@@ -86,13 +86,13 @@ Configuration precedence:
 ## Run with npx
 
 ```bash
-npx -y @calypso-rag/calypso-mcp --api-key "sk-..."
+npx -y @calypsohq/multimodal-rag-mcp-server --api-key "sk-..."
 ```
 
 ## Run with environment variables
 
 ```bash
-env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" npx -y @calypso-rag/calypso-mcp
+env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" npx -y @calypsohq/multimodal-rag-mcp-server
 ```
 
 ## Configure in Cursor
@@ -100,7 +100,7 @@ env CALYPSO_API_KEY="sk-..." CALYPSO_API_BASE_URL="https://api.calypso.so/v1" np
 Add a new MCP server (command type) like:
 
 ```bash
-npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
+npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
 
 ## Configure in Claude Desktop
@@ -130,7 +130,7 @@ Paste this into `claude_desktop_config.json`:
       "command": "npx",
       "args": [
         "-y",
-        "@calypso-rag/calypso-mcp"
+        "@calypsohq/multimodal-rag-mcp-server"
       ],
       "env": {
         "CALYPSO_API_KEY": "sk-your-calypso-api-key",
@@ -175,7 +175,7 @@ Smithery user config:
 The Smithery launch path is equivalent to:
 
 ```bash
-npx -y @calypso-rag/calypso-mcp --api-key sk-... --api-base-url https://api.calypso.so/v1
+npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-... --api-base-url https://api.calypso.so/v1
 ```
 
 Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible deployment. The cloud default does not need an override.
@@ -185,7 +185,7 @@ Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible dep
 - **Missing API key**: provide `--api-key` or `CALYPSO_API_KEY`
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
-- **Smithery launch mismatch**: use the packaged `npx -y @calypso-rag/calypso-mcp` path instead of running `node dist/index.js` from a fresh clone
+- **Smithery launch mismatch**: use the packaged `npx -y @calypsohq/multimodal-rag-mcp-server` path instead of running `node dist/index.js` from a fresh clone
 
 ## Available tools
 

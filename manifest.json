@@ -1,9 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
   "manifest_version": "0.4",
-  "name": "calypso-mcp",
-  "display_name": "Calypso MCP",
-  "version": "1.0.26",
+  "name": "multimodal-rag-mcp-server",
+  "display_name": "Calypso Multimodal RAG MCP",
+  "version": "1.0.27",
   "description": "Calypso RAG MCP server for source-backed answers via the Calypso Responses API.",
   "author": {
     "name": "Calypso"
@@ -13,7 +13,7 @@
     "url": "https://github.com/calypso-so/calypso-mcp-server.git"
   },
   "homepage": "https://github.com/calypso-so/calypso-mcp-server",
-  "documentation": "https://docs.calypso.ms/",
+  "documentation": "https://docs.calypso.so",
   "license": "MIT",
   "server": {
     "type": "node",

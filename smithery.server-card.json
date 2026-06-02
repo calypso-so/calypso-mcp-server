@@ -1,8 +1,8 @@
 {
   "serverInfo": {
-    "title": "Calypso MCP",
+    "title": "Calypso Multimodal RAG MCP",
     "description": "Multimodal RAG for source-backed AI answers through the Calypso Responses API.",
-    "websiteUrl": "https://docs.calypso.ms/"
+    "websiteUrl": "https://docs.calypso.so"
   },
   "tools": [
     {
