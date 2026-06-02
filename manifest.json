@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "multimodal-rag-mcp-server",
   "display_name": "Calypso Multimodal RAG MCP",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "description": "Calypso RAG MCP server for source-backed answers via the Calypso Responses API.",
   "author": {
     "name": "Calypso"
@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/calypso-so/calypso-mcp-server.git"
   },
-  "homepage": "https://github.com/calypso-so/calypso-mcp-server",
+  "homepage": "https://www.calypso.so/",
   "documentation": "https://docs.calypso.so",
   "license": "MIT",
   "server": {
