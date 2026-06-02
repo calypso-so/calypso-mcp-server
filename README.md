@@ -6,7 +6,9 @@
 [![License](https://img.shields.io/github/license/calypso-so/calypso-mcp-server)](./LICENSE)
 [![CI](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml)
 
-This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. It is a thin bridge to Calypso's OpenAI-compatible API for grounded answers, agent-store uploads, and durable knowledge ingestion.
+This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. Calypso is a hosted, Gemini File Search-powered multimodal RAG layer for grounded answers across PDFs, docs, screenshots, charts, diagrams, help content, FAQs, images, and internal knowledge.
+
+Instead of wiring each agent or workflow to a one-off document search stack, use this MCP as the agent-facing entry point to one reusable answer layer: upload source material once, retrieve across text and visual content, and return answers with evidence users can verify.
 
 Docs: `https://docs.calypso.so`
 
@@ -17,6 +19,24 @@ Docs: `https://docs.calypso.so`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
 
 The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
+
+## Why Multimodal-First RAG
+
+Most company knowledge is not only text. The answer often lives across a setup screenshot, a PDF table, a product diagram, a help-center page, or a chart inside a report. Calypso packages that full knowledge surface into a single retrieval layer so agents can ask grounded questions without guessing from generic model memory.
+
+- **Search the formats users actually rely on**: documentation, PDFs, screenshots, charts, diagrams, product images, support articles, manuals, policies, FAQs, and reports.
+- **Ground answers before the model writes**: Gemini File Search retrieves relevant text and visual context first, then the RAG agent answers from that source material.
+- **Show the evidence trail**: responses can include source references, page-aware grounding, and retrieval metadata so people can verify before they trust.
+- **Scope retrieval with metadata**: use workspace, team, customer, language, file type, status, or other metadata to keep answers relevant without duplicating knowledge bases.
+- **Reuse the same knowledge layer everywhere**: connect Cursor, Claude Desktop, AI agents, n8n workflows, product UI, support flows, and website experiences to the same source-backed layer.
+
+In practice, this means your agent can answer questions like:
+
+- "What does this onboarding PDF say about approval rules?"
+- "Why is this setup screen failing?"
+- "Summarize the policy that applies to this support ticket."
+- "Which product plan fits this customer based on our pricing docs?"
+- "Compare the diagrammed ingestion flow with the retrieval flow."
 
 ## Catalog & Trust
 
