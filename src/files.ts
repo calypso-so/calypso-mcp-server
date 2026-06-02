@@ -1,9 +1,14 @@
-import { readFile } from "fs/promises";
-import path from "path";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 import type { CalypsoRuntimeConfig } from "./config.js";
 
-export type OpenAiFileRagReadinessState = "uploaded" | "preparing" | "indexing" | "active" | "error";
+export type OpenAiFileRagReadinessState =
+  | "uploaded"
+  | "preparing"
+  | "indexing"
+  | "active"
+  | "error";
 
 export type OpenAiFileRagReadiness = {
   state: OpenAiFileRagReadinessState;
@@ -106,15 +111,22 @@ type ResolvedUploadContent = {
   mimeType: string;
 };
 
-function buildApiUrl(config: CalypsoRuntimeConfig, relativePath: string): string {
-  const normalizedPath = relativePath.startsWith("/") ? relativePath.slice(1) : relativePath;
+function buildApiUrl(
+  config: CalypsoRuntimeConfig,
+  relativePath: string,
+): string {
+  const normalizedPath = relativePath.startsWith("/")
+    ? relativePath.slice(1)
+    : relativePath;
   return new URL(normalizedPath, `${config.apiBaseUrl}/`).toString();
 }
 
 function requireApiKey(config: CalypsoRuntimeConfig): string {
   const apiKey = String(config.apiKey || "").trim();
   if (!apiKey) {
-    throw new Error("CALYPSO_API_KEY is required to call Calypso tools, but it is not configured.");
+    throw new Error(
+      "CALYPSO_API_KEY is required to call Calypso tools, but it is not configured.",
+    );
   }
 
   return apiKey;
@@ -161,7 +173,7 @@ function formatApiError(status: number, body: unknown): string {
 async function requestJson<T>(
   config: CalypsoRuntimeConfig,
   relativePath: string,
-  init: RequestInit & { headers?: HeadersInit }
+  init: RequestInit & { headers?: HeadersInit },
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${requireApiKey(config)}`);
@@ -179,7 +191,7 @@ async function requestJson<T>(
   return body as T;
 }
 
-function stripDataUriPrefix(value: string): string {
+export function stripDataUriPrefix(value: string): string {
   const marker = ";base64,";
   const markerIndex = value.indexOf(marker);
   if (markerIndex === -1) {
@@ -189,16 +201,22 @@ function stripDataUriPrefix(value: string): string {
   return value.slice(markerIndex + marker.length);
 }
 
-async function resolveUploadContent(input: UploadContentSource): Promise<ResolvedUploadContent> {
-  const hasContentBase64 = typeof input.contentBase64 === "string" && input.contentBase64.trim().length > 0;
-  const hasFilePath = typeof input.filePath === "string" && input.filePath.trim().length > 0;
+export async function resolveUploadContent(
+  input: UploadContentSource,
+): Promise<ResolvedUploadContent> {
+  const hasContentBase64 =
+    typeof input.contentBase64 === "string" &&
+    input.contentBase64.trim().length > 0;
+  const hasFilePath =
+    typeof input.filePath === "string" && input.filePath.trim().length > 0;
 
   if (hasContentBase64 === hasFilePath) {
     throw new Error("Provide exactly one of `contentBase64` or `filePath`.");
   }
 
   const filename =
-    (input.filename || "").trim() || (hasFilePath && input.filePath ? path.basename(input.filePath) : "");
+    (input.filename || "").trim() ||
+    (hasFilePath && input.filePath ? path.basename(input.filePath) : "");
   if (!filename) {
     throw new Error("A filename is required.");
   }
@@ -214,7 +232,9 @@ async function resolveUploadContent(input: UploadContentSource): Promise<Resolve
     };
   }
 
-  const normalizedBase64 = stripDataUriPrefix(String(input.contentBase64).trim());
+  const normalizedBase64 = stripDataUriPrefix(
+    String(input.contentBase64).trim(),
+  );
   const bytes = Buffer.from(normalizedBase64, "base64");
   if (bytes.byteLength === 0) {
     throw new Error("The provided `contentBase64` value could not be decoded.");
@@ -228,7 +248,9 @@ async function resolveUploadContent(input: UploadContentSource): Promise<Resolve
 }
 
 function createMultipartFile(content: ResolvedUploadContent): Blob {
-  return new Blob([content.bytes], { type: content.mimeType || DEFAULT_MIME_TYPE });
+  return new Blob([content.bytes], {
+    type: content.mimeType || DEFAULT_MIME_TYPE,
+  });
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -236,12 +258,19 @@ async function sleep(ms: number): Promise<void> {
 }
 
 function isOpenAiFileReady(file: OpenAiFileObject): boolean {
-  return file.metadata?.rag_readiness?.state === OPENAI_READY_STATE || file.metadata?.rag_readiness?.is_ready === true;
+  return (
+    file.metadata?.rag_readiness?.state === OPENAI_READY_STATE ||
+    file.metadata?.rag_readiness?.is_ready === true
+  );
 }
 
 function getOpenAiFileError(file: OpenAiFileObject): string | null {
   if (file.metadata?.rag_readiness?.state === "error") {
-    return String(file.metadata.rag_readiness.detail || file.metadata.rag_readiness.label || "File processing failed.");
+    return String(
+      file.metadata.rag_readiness.detail ||
+        file.metadata.rag_readiness.label ||
+        "File processing failed.",
+    );
   }
 
   if (file.status === "error") {
@@ -252,7 +281,9 @@ function getOpenAiFileError(file: OpenAiFileObject): string | null {
 }
 
 function extractKnowledgeStatus(result: KnowledgeUploadResult): string {
-  return String(result.file.status || result.task?.status || "").trim().toLowerCase();
+  return String(result.file.status || result.task?.status || "")
+    .trim()
+    .toLowerCase();
 }
 
 function isKnowledgeReady(result: KnowledgeUploadResult): boolean {
@@ -272,15 +303,22 @@ function getKnowledgeError(result: KnowledgeUploadResult): string | null {
   return null;
 }
 
-export async function getOpenAiFile(config: CalypsoRuntimeConfig, fileId: string): Promise<OpenAiFileObject> {
-  return requestJson<OpenAiFileObject>(config, `/files/${encodeURIComponent(fileId)}`, {
-    method: "GET",
-  });
+export async function getOpenAiFile(
+  config: CalypsoRuntimeConfig,
+  fileId: string,
+): Promise<OpenAiFileObject> {
+  return requestJson<OpenAiFileObject>(
+    config,
+    `/files/${encodeURIComponent(fileId)}`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 export async function waitForOpenAiFileReady(
   config: CalypsoRuntimeConfig,
-  fileId: string
+  fileId: string,
 ): Promise<OpenAiFileObject> {
   let delayMs = POLL_INITIAL_DELAY_MS;
 
@@ -297,16 +335,21 @@ export async function waitForOpenAiFileReady(
 
     if (attempt < OPENAI_POLL_MAX_ATTEMPTS - 1) {
       await sleep(delayMs);
-      delayMs = Math.min(POLL_MAX_DELAY_MS, Math.round(delayMs * POLL_BACKOFF_MULTIPLIER));
+      delayMs = Math.min(
+        POLL_MAX_DELAY_MS,
+        Math.round(delayMs * POLL_BACKOFF_MULTIPLIER),
+      );
     }
   }
 
-  throw new Error("Timed out while waiting for the uploaded file to become RAG-ready.");
+  throw new Error(
+    "Timed out while waiting for the uploaded file to become RAG-ready.",
+  );
 }
 
 export async function uploadAgentFile(
   config: CalypsoRuntimeConfig,
-  params: UploadAgentFileParams
+  params: UploadAgentFileParams,
 ): Promise<OpenAiFileObject> {
   const content = await resolveUploadContent(params);
   const form = new FormData();
@@ -328,36 +371,46 @@ export async function uploadAgentFile(
 
 export async function getKnowledgeFile(
   config: CalypsoRuntimeConfig,
-  fileId: string
+  fileId: string,
 ): Promise<KnowledgeFileObject> {
-  return requestJson<KnowledgeFileObject>(config, `/knowledge/files/${encodeURIComponent(fileId)}`, {
-    method: "GET",
-  });
+  return requestJson<KnowledgeFileObject>(
+    config,
+    `/knowledge/files/${encodeURIComponent(fileId)}`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 export async function getKnowledgeTask(
   config: CalypsoRuntimeConfig,
-  taskId: string
+  taskId: string,
 ): Promise<KnowledgeTaskObject> {
-  return requestJson<KnowledgeTaskObject>(config, `/knowledge/tasks/${encodeURIComponent(taskId)}`, {
-    method: "GET",
-  });
+  return requestJson<KnowledgeTaskObject>(
+    config,
+    `/knowledge/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 async function resolveKnowledgeResult(
   config: CalypsoRuntimeConfig,
   fileId: string,
-  taskId?: string | null
+  taskId?: string | null,
 ): Promise<KnowledgeUploadResult> {
   const file = await getKnowledgeFile(config, fileId);
-  const task = taskId ? await getKnowledgeTask(config, taskId) : file.task || null;
+  const task = taskId
+    ? await getKnowledgeTask(config, taskId)
+    : file.task || null;
   return { file, task };
 }
 
 export async function waitForKnowledgeFileIndexed(
   config: CalypsoRuntimeConfig,
   fileId: string,
-  taskId?: string | null
+  taskId?: string | null,
 ): Promise<KnowledgeUploadResult> {
   let delayMs = POLL_INITIAL_DELAY_MS;
 
@@ -374,16 +427,21 @@ export async function waitForKnowledgeFileIndexed(
 
     if (attempt < KNOWLEDGE_POLL_MAX_ATTEMPTS - 1) {
       await sleep(delayMs);
-      delayMs = Math.min(POLL_MAX_DELAY_MS, Math.round(delayMs * POLL_BACKOFF_MULTIPLIER));
+      delayMs = Math.min(
+        POLL_MAX_DELAY_MS,
+        Math.round(delayMs * POLL_BACKOFF_MULTIPLIER),
+      );
     }
   }
 
-  throw new Error("Timed out while waiting for the knowledge file to finish indexing.");
+  throw new Error(
+    "Timed out while waiting for the knowledge file to finish indexing.",
+  );
 }
 
 export async function uploadKnowledgeFile(
   config: CalypsoRuntimeConfig,
-  params: UploadKnowledgeFileParams
+  params: UploadKnowledgeFileParams,
 ): Promise<KnowledgeUploadResult> {
   const content = await resolveUploadContent(params);
   const form = new FormData();
@@ -409,11 +467,15 @@ export async function uploadKnowledgeFile(
     headers.set("Idempotency-Key", params.idempotencyKey.trim());
   }
 
-  const file = await requestJson<KnowledgeFileObject>(config, "/knowledge/files", {
-    method: "POST",
-    headers,
-    body: form,
-  });
+  const file = await requestJson<KnowledgeFileObject>(
+    config,
+    "/knowledge/files",
+    {
+      method: "POST",
+      headers,
+      body: form,
+    },
+  );
 
   const initialResult: KnowledgeUploadResult = {
     file,

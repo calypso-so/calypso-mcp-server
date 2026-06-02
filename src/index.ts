@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
-import { readFile } from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import { DEFAULT_CALYPSO_API_BASE_URL, formatUsage, parseCliOptions, resolveRuntimeConfig } from "./config.js";
+import {
+  DEFAULT_CALYPSO_API_BASE_URL,
+  formatUsage,
+  parseCliOptions,
+  resolveRuntimeConfig,
+} from "./config.js";
 import { createCalypsoMcpServer } from "./server.js";
 
 type PackageInfo = {
@@ -69,7 +74,7 @@ async function main() {
     if (error instanceof Error) {
       console.error(`Error: ${error.message}`);
       console.error(
-        `Example: env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=${DEFAULT_CALYPSO_API_BASE_URL} npx -y @calypso-rag/calypso-mcp`
+        `Example: env CALYPSO_API_KEY=sk-... CALYPSO_API_BASE_URL=${DEFAULT_CALYPSO_API_BASE_URL} npx -y @calypso-rag/calypso-mcp`,
       );
       console.error("");
       console.error(formatUsage());
@@ -78,4 +83,4 @@ async function main() {
   }
 }
 
-main(); 
+main();

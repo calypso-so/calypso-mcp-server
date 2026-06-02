@@ -27,7 +27,10 @@ export type CalypsoCliOptions = {
   version: boolean;
 };
 
-const CLI_FLAG_ALIASES: Record<string, keyof Omit<CalypsoCliOptions, "help" | "version">> = {
+const CLI_FLAG_ALIASES: Record<
+  string,
+  keyof Omit<CalypsoCliOptions, "help" | "version">
+> = {
   "api-key": "apiKey",
   "calypso-api-key": "apiKey",
   "api-base-url": "apiBaseUrl",
@@ -39,7 +42,11 @@ function normalizeOptionalValue(value?: string | null): string | undefined {
   return trimmed || undefined;
 }
 
-function readFlagValue(flag: string, argv: string[], index: number): { value?: string; consumedNextArg: boolean } {
+function readFlagValue(
+  flag: string,
+  argv: string[],
+  index: number,
+): { value?: string; consumedNextArg: boolean } {
   if (flag.includes("=")) {
     const [, rawValue = ""] = flag.split(/=(.*)/s, 2);
     return { value: rawValue, consumedNextArg: false };
@@ -97,8 +104,12 @@ export function resolveRuntimeConfig(options: {
   env: NodeJS.ProcessEnv;
 }): CalypsoRuntimeConfig {
   return calypsoConfigSchema.parse({
-    apiKey: normalizeOptionalValue(options.cli.apiKey) ?? normalizeOptionalValue(options.env.CALYPSO_API_KEY),
-    apiBaseUrl: normalizeOptionalValue(options.cli.apiBaseUrl) ?? normalizeOptionalValue(options.env.CALYPSO_API_BASE_URL),
+    apiKey:
+      normalizeOptionalValue(options.cli.apiKey) ??
+      normalizeOptionalValue(options.env.CALYPSO_API_KEY),
+    apiBaseUrl:
+      normalizeOptionalValue(options.cli.apiBaseUrl) ??
+      normalizeOptionalValue(options.env.CALYPSO_API_BASE_URL),
   });
 }
 

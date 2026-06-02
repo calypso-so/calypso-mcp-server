@@ -29,10 +29,11 @@
     "smoke:stdio": "node \"scripts/smoke-stdio.mjs\"",
     "validate:smithery": "npm run build && npm run smoke:stdio && npm run validate:mcpb",
     "publish:smithery": "npm run build:mcpb && node \"scripts/publish-smithery.mjs\"",
-    "test": "echo \"No tests specified\"",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "start": "node dist/index.js",
-    "lint": "echo \"No linting configured\"",
-    "format": "echo \"No formatting configured\"",
+    "lint": "biome check --indent-style=space --indent-width=2 src scripts tests",
+    "format": "biome format --write --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json",
+    "format:check": "biome format --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json",
     "prepare": "npm run build",
     "release": "npm run build && npm publish"
   },
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
+    "@biomejs/biome": "^2.4.16",
     "@smithery/api": "^0.66.0",
     "@types/node": "^20.10.0",
     "ts-node": "^10.9.2",

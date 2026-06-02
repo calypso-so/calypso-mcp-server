@@ -1,16 +1,32 @@
 # Calypso RAG MCP Server
 
 [![smithery badge](https://smithery.ai/badge/multimodal-rag/calypso-mcp-server)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/calypso-so/calypso-mcp-server)](https://archestra.ai/mcp-catalog/calypso-so__calypso-mcp-server)
+[![npm version](https://img.shields.io/npm/v/@calypso-rag/calypso-mcp)](https://www.npmjs.com/package/@calypso-rag/calypso-mcp)
+[![License](https://img.shields.io/github/license/calypso-so/calypso-mcp-server)](./LICENSE)
+[![CI](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml)
 
-This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. It is a thin bridge to Calypso's OpenAI-compatible API and forwards every request to the `calypso-rag-agent` model.
+This MCP server exposes the **Calypso RAG agent** to MCP clients such as Cursor and Claude Desktop. It is a thin bridge to Calypso's OpenAI-compatible API for grounded answers, agent-store uploads, and durable knowledge ingestion.
 
 Docs: `https://docs.calypso.ms/`
 
 ## What you get
 
-- **`calypso-rag-agent`**: a single tool that sends each turn directly to the Calypso RAG agent
+- **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
+- **`calypso-upload-agent-file`**: uploads a file into the agent store and returns a compatible OpenAI-style `file_id`
+- **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
 
-The tool accepts a single `prompt` argument.
+The server also publishes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
+
+## Catalog & Trust
+
+This repository is prepared for the [Archestra MCP Catalog](https://archestra.ai/mcp-catalog). The Trust Score badge is a catalog hygiene signal based on public metadata such as protocol coverage, documentation, GitHub activity, and code quality. It is not a security certification; review the code and configure API keys carefully before connecting any MCP server to sensitive data.
+
+To add this server to Archestra, fork [`archestra-ai/website`](https://github.com/archestra-ai/website), edit `app/app/mcp-catalog/data/mcp-servers.json`, and add:
+
+```json
+"https://github.com/calypso-so/calypso-mcp-server"
+```
 
 ## What this MCP does
 
@@ -20,6 +36,7 @@ With `calypso-rag-agent` you can:
 - Continue a multi-turn conversation via the native `/v1/responses` conversation model
 - Reset the conversation context with `/new`
 - Use the same OpenAI-compatible Responses endpoint that serves `calypso-rag-agent`
+- Discover built-in resources and prompts for the supported Calypso workflows
 
 ## Requirements
 
@@ -181,6 +198,24 @@ Notes:
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
 - Supports optional `title`, `tags`, `metadata`, and `idempotencyKey`.
 - Can optionally wait until indexing reaches a ready state before returning.
+
+## Available resources
+
+### `calypso://server-info`
+Read-only server metadata, including package version, API base URL, transport, authentication model, and exposed capabilities.
+
+### `calypso://workflows`
+A compact guide to the supported RAG, agent-file, and knowledge-file workflows.
+
+### `calypso://security`
+Operational security notes for API keys, local file reads, uploads, and logging.
+
+## Available prompts
+
+- **`calypso-knowledge-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
+- **`calypso-agent-file-question`**: ask over uploaded `file_id` values using `rag_policy` semantics
+- **`calypso-knowledge-ingestion`**: prepare a durable knowledge-store upload and follow-up query
+- **`calypso-reset-conversation`**: start a clean RAG thread with `/new`
 
 ## Common workflows (copy/paste)
 

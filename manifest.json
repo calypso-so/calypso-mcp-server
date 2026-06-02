@@ -20,9 +20,7 @@
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": [
-        "${__dirname}/dist/index.js"
-      ],
+      "args": ["${__dirname}/dist/index.js"],
       "env": {
         "CALYPSO_API_KEY": "${user_config.calypsoApiKey}",
         "CALYPSO_API_BASE_URL": "${user_config.calypsoApiBaseUrl}"
@@ -47,10 +45,6 @@
     }
   },
   "compatibility": {
-    "platforms": [
-      "darwin",
-      "win32",
-      "linux"
-    ]
+    "platforms": ["darwin", "win32", "linux"]
   }
 }

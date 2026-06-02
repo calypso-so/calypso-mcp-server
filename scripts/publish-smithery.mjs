@@ -1,7 +1,6 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Smithery from "@smithery/api";
 
 const DEFAULT_QUALIFIED_NAME = "multimodal-rag/calypso-mcp-server";
@@ -68,7 +67,10 @@ function buildConfigSchema(userConfig) {
 
   for (const [key, value] of Object.entries(userConfig || {})) {
     const property = {
-      type: value.type === "file" || value.type === "directory" ? "string" : value.type,
+      type:
+        value.type === "file" || value.type === "directory"
+          ? "string"
+          : value.type,
     };
 
     if (value.title) {

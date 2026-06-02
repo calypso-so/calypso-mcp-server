@@ -24,9 +24,7 @@
             }
           }
         },
-        "required": [
-          "prompt"
-        ]
+        "required": ["prompt"]
       },
       "annotations": {
         "title": "Calypso RAG Agent",
@@ -71,10 +69,7 @@
             "description": "If true, wait until the uploaded file is RAG-ready before returning."
           }
         },
-        "required": [
-          "filename",
-          "mimeType"
-        ]
+        "required": ["filename", "mimeType"]
       },
       "annotations": {
         "title": "Calypso Upload Agent File",
@@ -135,10 +130,7 @@
             "description": "If true, wait until indexing reaches a terminal ready state before returning."
           }
         },
-        "required": [
-          "filename",
-          "mimeType"
-        ]
+        "required": ["filename", "mimeType"]
       },
       "annotations": {
         "title": "Calypso Upload Knowledge File",
