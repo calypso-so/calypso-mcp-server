@@ -1,0 +1,128 @@
+name: Publish to MCP Registry
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish Registry Metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Smoke stdio transport
+        run: npm run smoke:stdio
+
+      - name: Validate MCPB manifest
+        run: npm run validate:mcpb
+
+      - name: Verify registry metadata
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const serverJson = JSON.parse(fs.readFileSync("server.json", "utf8"));
+
+          const expectedName = "io.github.calypso-so/multimodal-rag-mcp-server";
+          const expectedPackage = "@calypsohq/multimodal-rag-mcp-server";
+          const refType = process.env.GITHUB_REF_TYPE;
+          const refName = process.env.GITHUB_REF_NAME;
+          const expectedVersion =
+            refType === "tag" && refName?.startsWith("v") ? refName.slice(1) : packageJson.version;
+
+          const checks = [
+            ["package.json name", packageJson.name, expectedPackage],
+            ["package.json mcpName", packageJson.mcpName, expectedName],
+            ["server.json name", serverJson.name, expectedName],
+            ["package.json version", packageJson.version, expectedVersion],
+            ["server.json version", serverJson.version, expectedVersion],
+            ["server.json package identifier", serverJson.packages?.[0]?.identifier, expectedPackage],
+            ["server.json package version", serverJson.packages?.[0]?.version, expectedVersion],
+            ["server.json package registryType", serverJson.packages?.[0]?.registryType, "npm"],
+            ["server.json package transport", serverJson.packages?.[0]?.transport?.type, "stdio"],
+          ];
+
+          for (const [label, actual, expected] of checks) {
+            if (actual !== expected) {
+              console.error(`${label} mismatch: expected ${expected}, got ${actual}`);
+              process.exit(1);
+            }
+          }
+          NODE
+
+      - name: Wait for npm package
+        run: |
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+
+          for attempt in $(seq 1 20); do
+            if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+              echo "${PACKAGE_NAME}@${PACKAGE_VERSION} is available on npm."
+              exit 0
+            fi
+
+            echo "Waiting for ${PACKAGE_NAME}@${PACKAGE_VERSION} to be available on npm (attempt ${attempt}/20)..."
+            sleep 15
+          done
+
+          echo "${PACKAGE_NAME}@${PACKAGE_VERSION} was not available on npm in time."
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: Verify MCP Registry listing
+        run: |
+          SERVER_NAME="$(node -p "require('./server.json').name")"
+          curl --fail --silent --show-error "https://registry.modelcontextprotocol.io/v0.1/servers?search=${SERVER_NAME}" | node -e '
+            let body = "";
+            process.stdin.on("data", (chunk) => (body += chunk));
+            process.stdin.on("end", () => {
+              const expected = process.env.SERVER_NAME;
+              const parsed = JSON.parse(body);
+              if (!Array.isArray(parsed.servers) || !parsed.servers.some((server) => server.name === expected)) {
+                console.error(`Registry listing ${expected} was not found in search results.`);
+                process.exit(1);
+              }
+            });
+          '
+        env:
+          SERVER_NAME: io.github.calypso-so/multimodal-rag-mcp-server

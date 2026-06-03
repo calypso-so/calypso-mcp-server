@@ -1,6 +1,7 @@
 {
   "name": "@calypsohq/multimodal-rag-mcp-server",
-  "version": "1.0.29",
+  "version": "1.0.30",
+  "mcpName": "io.github.calypso-so/multimodal-rag-mcp-server",
   "description": "MCP server for Calypso (AIcore) agents via OpenAI-compatible API.",
   "main": "dist/index.js",
   "homepage": "https://www.calypso.so/",
@@ -32,8 +33,8 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "start": "node dist/index.js",
     "lint": "biome check --indent-style=space --indent-width=2 src scripts tests",
-    "format": "biome format --write --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json",
-    "format:check": "biome format --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json",
+    "format": "biome format --write --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json server.json",
+    "format:check": "biome format --indent-style=space --indent-width=2 src scripts tests package.json tsconfig.json smithery.server-card.json manifest.json server.json",
     "prepare": "npm run build",
     "release": "npm run build && npm publish"
   },
