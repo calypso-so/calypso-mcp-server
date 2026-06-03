@@ -216,7 +216,9 @@ Uploads a file into the durable knowledge store and indexing pipeline.
 Notes:
 - Uses `POST /v1/knowledge/files`.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
-- Supports optional `title`, `tags`, `metadata`, and `idempotencyKey`.
+- Supports optional `title`, `tags`, `metadata`, `idempotencyKey`, and knowledge bucket assignment.
+- Route uploads into existing buckets with `bucketIds` or `bucketSlugs`, or use `bucket` as a single-slug shortcut.
+- Pass `createMissingBuckets: true` with bucket slugs when you want Calypso to create missing destinations during upload.
 - Can optionally wait until indexing reaches a ready state before returning.
 
 ## Available resources
@@ -270,6 +272,10 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 
 - **Upload durable knowledge**:
   - Call `calypso-upload-knowledge-file` with the file payload and optional `title`, `tags`, or `metadata`
+- **Route knowledge into buckets**:
+  - Use `bucket: "support-handbook"` for one destination, `bucketSlugs` for multiple slug-based destinations, or `bucketIds` when you already have stable bucket ids
+- **Create bucket destinations on demand**:
+  - Add `createMissingBuckets: true` when using slug-based bucket assignment and the destination may not exist yet
 - **Wait for indexing**:
   - Pass `waitForIndexing: true` if you want the tool to block until the knowledge file is indexed
 

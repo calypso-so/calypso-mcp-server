@@ -37,6 +37,10 @@ type UploadKnowledgeFileToolParams = {
   title?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
   idempotencyKey?: string;
   waitForIndexing?: boolean;
 };
@@ -570,6 +574,24 @@ export function createCalypsoMcpServer(options: {
         .describe(
           "Optional metadata object serialized onto the upload request.",
         ),
+      bucketIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Optional existing knowledge bucket ids to assign this upload to.",
+        ),
+      bucketSlugs: z
+        .array(z.string())
+        .optional()
+        .describe("Optional knowledge bucket slugs to assign this upload to."),
+      bucket: z
+        .string()
+        .optional()
+        .describe("Convenience single bucket slug for this upload."),
+      createMissingBuckets: z
+        .boolean()
+        .optional()
+        .describe("If true, create missing bucket slugs before assignment."),
       idempotencyKey: z
         .string()
         .optional()
@@ -589,6 +611,10 @@ export function createCalypsoMcpServer(options: {
       title,
       tags,
       metadata,
+      bucketIds,
+      bucketSlugs,
+      bucket,
+      createMissingBuckets,
       idempotencyKey,
       waitForIndexing,
     }: UploadKnowledgeFileToolParams) => {
@@ -600,6 +626,10 @@ export function createCalypsoMcpServer(options: {
           source: contentBase64 ? "contentBase64" : "filePath",
           tagCount: tags?.length || 0,
           hasMetadata: Boolean(metadata && Object.keys(metadata).length > 0),
+          bucketCount:
+            (bucketIds?.length || 0) +
+            (bucketSlugs?.length || 0) +
+            (bucket ? 1 : 0),
           waitForIndexing: waitForIndexing === true,
         });
 
@@ -611,6 +641,10 @@ export function createCalypsoMcpServer(options: {
           title,
           tags,
           metadata,
+          bucketIds,
+          bucketSlugs,
+          bucket,
+          createMissingBuckets,
           idempotencyKey,
           waitForIndexing,
         });

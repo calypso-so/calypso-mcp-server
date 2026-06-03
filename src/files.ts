@@ -79,6 +79,10 @@ export type UploadKnowledgeFileParams = {
   title?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
   idempotencyKey?: string;
   waitForIndexing?: boolean;
 };
@@ -460,6 +464,24 @@ export async function uploadKnowledgeFile(
 
   if (params.metadata && Object.keys(params.metadata).length > 0) {
     form.set("metadata", JSON.stringify(params.metadata));
+  }
+
+  for (const bucketId of params.bucketIds || []) {
+    const value = String(bucketId || "").trim();
+    if (value) form.append("bucket_ids", value);
+  }
+
+  for (const bucketSlug of params.bucketSlugs || []) {
+    const value = String(bucketSlug || "").trim();
+    if (value) form.append("bucket_slugs", value);
+  }
+
+  if (params.bucket?.trim()) {
+    form.set("bucket", params.bucket.trim());
+  }
+
+  if (params.createMissingBuckets === true) {
+    form.set("create_missing_buckets", "true");
   }
 
   const headers = new Headers();
