@@ -111,18 +111,38 @@ jobs:
 
       - name: Verify MCP Registry listing
         run: |
-          SERVER_NAME="$(node -p "require('./server.json').name")"
-          curl --fail --silent --show-error "https://registry.modelcontextprotocol.io/v0.1/servers?search=${SERVER_NAME}" | node -e '
-            let body = "";
-            process.stdin.on("data", (chunk) => (body += chunk));
-            process.stdin.on("end", () => {
-              const expected = process.env.SERVER_NAME;
-              const parsed = JSON.parse(body);
-              if (!Array.isArray(parsed.servers) || !parsed.servers.some((server) => server.name === expected)) {
-                console.error(`Registry listing ${expected} was not found in search results.`);
-                process.exit(1);
+          node <<'NODE'
+          const expected = require("./server.json").name;
+          const searchUrl = `https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(expected)}`;
+
+          async function verifyListing() {
+            const response = await fetch(searchUrl);
+            if (!response.ok) {
+              throw new Error(`Registry search failed with ${response.status}: ${await response.text()}`);
+            }
+
+            const result = await response.json();
+            const servers = Array.isArray(result.servers) ? result.servers : [];
+            return servers.some((entry) => (entry.server?.name ?? entry.name) === expected);
+          }
+
+          async function main() {
+            for (let attempt = 1; attempt <= 20; attempt += 1) {
+              if (await verifyListing()) {
+                console.log(`Registry listing ${expected} is available.`);
+                return;
               }
-            });
-          '
-        env:
-          SERVER_NAME: io.github.calypso-so/multimodal-rag-mcp-server
+
+              console.log(`Waiting for registry listing ${expected} (attempt ${attempt}/20)...`);
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            }
+
+            console.error(`Registry listing ${expected} was not found in search results.`);
+            process.exit(1);
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE

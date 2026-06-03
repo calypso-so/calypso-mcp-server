@@ -12,6 +12,8 @@ Instead of wiring each agent or workflow to a one-off document search stack, use
 
 Docs: [https://docs.calypso.so](https://docs.calypso.so)
 
+Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.calypso-so/multimodal-rag-mcp-server)
+
 ## What you get
 
 - **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
