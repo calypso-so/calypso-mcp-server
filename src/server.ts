@@ -7,7 +7,9 @@ import type {
 } from "openai/resources/responses/responses";
 import { z } from "zod";
 
+import { listKnowledgeBuckets } from "./buckets.js";
 import {
+  CALYPSO_LIST_KNOWLEDGE_BUCKETS,
   CALYPSO_RAG_AGENT,
   CALYPSO_UPLOAD_AGENT_FILE,
   CALYPSO_UPLOAD_KNOWLEDGE_FILE,
@@ -81,6 +83,10 @@ type UploadKnowledgeFilesBatchToolParams = {
   createMissingBuckets?: boolean;
   dryRun?: boolean;
   waitForBatchReady?: boolean;
+};
+
+type ListKnowledgeBucketsToolParams = {
+  includeArchived?: boolean;
 };
 
 type PackageInfo = {
@@ -380,6 +386,7 @@ export function createCalypsoMcpServer(options: {
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
         tools: [
           CALYPSO_RAG_AGENT,
+          CALYPSO_LIST_KNOWLEDGE_BUCKETS,
           CALYPSO_UPLOAD_AGENT_FILE,
           CALYPSO_UPLOAD_KNOWLEDGE_FILE,
           CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
@@ -387,6 +394,7 @@ export function createCalypsoMcpServer(options: {
         resources: [
           "calypso://server-info",
           "calypso://rag-agent-models",
+          "calypso://knowledge-buckets",
           "calypso://workflows",
           "calypso://security",
         ],
@@ -408,6 +416,20 @@ export function createCalypsoMcpServer(options: {
       mimeType: "application/json",
     },
     (uri) => textResource(uri.toString(), modelCatalog),
+  );
+
+  server.resource(
+    "calypso-knowledge-buckets",
+    "calypso://knowledge-buckets",
+    {
+      description:
+        "Team-scoped Calypso knowledge buckets available to the configured API key.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      const bucketList = await listKnowledgeBuckets(config);
+      return textResource(uri.toString(), bucketList);
+    },
   );
 
   server.resource(
@@ -645,6 +667,69 @@ export function createCalypsoMcpServer(options: {
     conversationStates.set(modelId, next);
     return next;
   }
+
+  server.tool(
+    CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+    [
+      "[CALYPSO LIST KNOWLEDGE BUCKETS]",
+      "Lists knowledge buckets for the team tied to the configured Calypso API key.",
+      "",
+      "Use this before uploads when you need bucket ids, slugs, names, member counts,",
+      "or bucket-store readiness. This complements RAG model discovery: model discovery",
+      "shows which buckets are bound to each agent variant, while this tool lists all buckets for the API key team.",
+    ].join("\n"),
+    {
+      includeArchived: z
+        .boolean()
+        .optional()
+        .describe("If true, include archived buckets. Defaults to false."),
+    },
+    async ({ includeArchived }: ListKnowledgeBucketsToolParams) => {
+      try {
+        await logEvent("info", "Listing Calypso knowledge buckets.", {
+          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          includeArchived: includeArchived === true,
+        });
+
+        const bucketList = await listKnowledgeBuckets(config, {
+          includeArchived,
+        });
+
+        await logEvent("info", "Calypso knowledge bucket listing completed.", {
+          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          teamId: bucketList.team_id || null,
+          bucketCount: bucketList.buckets.length,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatJson(bucketList),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(
+          `Error calling ${CALYPSO_LIST_KNOWLEDGE_BUCKETS}:`,
+          error,
+        );
+        await logEvent("error", "Calypso knowledge bucket listing failed.", {
+          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Failed to list Calypso knowledge buckets. ${error}`,
+            },
+          ],
+        };
+      }
+    },
+  );
 
   server.tool(
     CALYPSO_UPLOAD_AGENT_FILE,

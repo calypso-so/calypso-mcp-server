@@ -17,6 +17,7 @@ Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https:
 ## What you get
 
 - **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
+- **`calypso-list-knowledge-buckets`**: lists all knowledge buckets available to the team tied to the configured API key
 - **`calypso-upload-agent-file`**: uploads a file through the agent-facing API, backed by one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files into required bucket destinations for indexing and retrieval
 - **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with required shared or per-item bucket assignment
@@ -70,6 +71,7 @@ With `calypso-rag-agent` you can:
 - A Calypso API endpoint that exposes:
   - `POST /v1/responses`
   - `GET /v1/rag-agent/models`
+  - `GET /v1/knowledge/buckets`
   - `POST /v1/files`
   - `POST /v1/knowledge/files`
   - `POST /v1/knowledge/files:batch`
@@ -171,6 +173,7 @@ Cmd + Q
 After restart, the MCP should appear in Claude with these tools available:
 
 - `calypso-rag-agent`
+- `calypso-list-knowledge-buckets`
 - `calypso-upload-agent-file`
 - `calypso-upload-knowledge-file`
 - `calypso-upload-knowledge-files-batch`
@@ -213,6 +216,25 @@ Notes:
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
 - Optional `fileIds` are supported for compatibility, but new agent-file uploads are bucket-backed and should be indexed into the selected model bucket before asking.
 - Use `/new` as the prompt to reset the MCP conversation.
+
+### `calypso-list-knowledge-buckets`
+Lists knowledge buckets for the team tied to the configured Calypso API key.
+
+Notes:
+- Uses `GET /v1/knowledge/buckets`.
+- Does not accept `team_id`; Calypso derives team scope from the API key.
+- Returns bucket ids, slugs, names, status, member counts, source counts, and bucket-store readiness.
+- Defaults to active buckets only. Pass `includeArchived: true` when you need archived buckets for audits or cleanup.
+- Use this before `calypso-upload-knowledge-file`, `calypso-upload-knowledge-files-batch`, or `calypso-upload-agent-file` when you need to choose a destination bucket.
+- `calypso://rag-agent-models` answers which buckets are bound to each RAG variant. `calypso-list-knowledge-buckets` answers which buckets exist for the API key's team.
+
+Example:
+
+```json
+{
+  "includeArchived": false
+}
+```
 
 ### `calypso-upload-agent-file`
 Uploads a file through the agent-facing `/v1/files` API, backed by exactly one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`.
@@ -306,6 +328,9 @@ Read-only server metadata, including package version, API base URL, transport, a
 ### `calypso://rag-agent-models`
 Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
 
+### `calypso://knowledge-buckets`
+Read-only runtime list of knowledge buckets for the team tied to the configured API key. Use it to inspect bucket ids/slugs and bucket-store readiness before uploads.
+
 ### `calypso://workflows`
 A compact guide to the supported RAG, agent-file, and knowledge-file workflows.
 
@@ -350,6 +375,8 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 
 ### Knowledge-store file flow
 
+- **Discover buckets**:
+  - Call `calypso-list-knowledge-buckets` or read `calypso://knowledge-buckets` before choosing a destination
 - **Upload durable knowledge**:
   - Call `calypso-upload-knowledge-file` with the file payload and optional `title`, `tags`, or `metadata`
 - **Route knowledge into buckets**:

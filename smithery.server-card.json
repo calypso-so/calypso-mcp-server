@@ -38,6 +38,30 @@
       }
     },
     {
+      "name": "calypso-list-knowledge-buckets",
+      "title": "Calypso List Knowledge Buckets",
+      "description": "List all knowledge buckets for the team tied to the configured Calypso API key. Use this before uploads to discover bucket ids, slugs, names, member counts, and bucket-store readiness.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeArchived": {
+            "type": "boolean",
+            "description": "If true, include archived buckets. Defaults to false."
+          }
+        }
+      },
+      "annotations": {
+        "title": "Calypso List Knowledge Buckets",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "optional"
+      }
+    },
+    {
       "name": "calypso-upload-agent-file",
       "title": "Calypso Upload Agent File",
       "description": "Upload a file into the agent store and return a compatible OpenAI-style `file_id`. This tool sends `purpose=user_data`, targets the selected RAG agent with `target_model`, and can wait until the file is ready for `rag_policy` retrieval.",
