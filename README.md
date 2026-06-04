@@ -19,6 +19,7 @@ Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https:
 - **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
 - **`calypso-upload-agent-file`**: uploads a file into the agent store and returns a compatible OpenAI-style `file_id`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
+- **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with shared or per-item bucket assignment
 
 The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
 
@@ -65,6 +66,9 @@ With `calypso-rag-agent` you can:
 - Node.js 18+
 - A Calypso API endpoint that exposes:
   - `POST /v1/responses`
+  - `POST /v1/knowledge/files`
+  - `POST /v1/knowledge/files:batch`
+  - `GET /v1/knowledge/batches/{batch_id}`
 - A Calypso API key (`sk-...`)
 
 ## Configuration
@@ -164,6 +168,7 @@ After restart, the MCP should appear in Claude with these tools available:
 - `calypso-rag-agent`
 - `calypso-upload-agent-file`
 - `calypso-upload-knowledge-file`
+- `calypso-upload-knowledge-files-batch`
 
 ## Smithery
 
@@ -220,6 +225,18 @@ Notes:
 - Route uploads into existing buckets with `bucketIds` or `bucketSlugs`, or use `bucket` as a single-slug shortcut.
 - Pass `createMissingBuckets: true` with bucket slugs when you want Calypso to create missing destinations during upload.
 - Can optionally wait until indexing reaches a ready state before returning.
+
+### `calypso-upload-knowledge-files-batch`
+Uploads 1 to 100 files into the durable knowledge store in one request.
+
+Notes:
+- Uses `POST /v1/knowledge/files:batch` with a JSON manifest plus one multipart file part per item.
+- Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
+- Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
+- Generates Firestore-safe `client_file_id` values when `clientFileId` is omitted.
+- Supports `dryRun: true` to validate manifest and bucket behavior without storing files.
+- `accepted` or `queued` means the upload is durable, not necessarily query-ready. Use `waitForBatchReady: true` to poll `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
+- Inspect per-item status, `bucketSyncStatus`, and `bucketSync` to distinguish indexed content from bucket-ready retrieval.
 
 ## Available resources
 
@@ -278,6 +295,17 @@ Operational security notes for API keys, local file reads, uploads, and logging.
   - Add `createMissingBuckets: true` when using slug-based bucket assignment and the destination may not exist yet
 - **Wait for indexing**:
   - Pass `waitForIndexing: true` if you want the tool to block until the knowledge file is indexed
+
+### Knowledge-store batch flow
+
+- **Upload many durable files**:
+  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and either `contentBase64` or `filePath` per item
+- **Route the batch into buckets**:
+  - Put shared `bucket`, `bucketSlugs`, `bucketIds`, or `createMissingBuckets` on the tool call, then override per item only when needed
+- **Validate first**:
+  - Use `dryRun: true` before large ingestions to catch manifest, bucket, or file-part issues
+- **Wait for query readiness**:
+  - Use `waitForBatchReady: true` and inspect returned item status plus bucket sync fields before querying fresh content
 
 ## Tips
 

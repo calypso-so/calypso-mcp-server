@@ -11,9 +11,14 @@ import {
   CALYPSO_RAG_AGENT,
   CALYPSO_UPLOAD_AGENT_FILE,
   CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+  CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
   type CalypsoRuntimeConfig,
 } from "./config.js";
-import { uploadAgentFile, uploadKnowledgeFile } from "./files.js";
+import {
+  uploadAgentFile,
+  uploadKnowledgeFile,
+  uploadKnowledgeFilesBatch,
+} from "./files.js";
 
 type RagPromptParams = {
   prompt: string;
@@ -43,6 +48,32 @@ type UploadKnowledgeFileToolParams = {
   createMissingBuckets?: boolean;
   idempotencyKey?: string;
   waitForIndexing?: boolean;
+};
+
+type UploadKnowledgeFilesBatchToolItemParams = {
+  filename: string;
+  mimeType: string;
+  contentBase64?: string;
+  filePath?: string;
+  clientFileId?: string;
+  title?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
+};
+
+type UploadKnowledgeFilesBatchToolParams = {
+  items: UploadKnowledgeFilesBatchToolItemParams[];
+  batchIdempotencyKey: string;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
+  dryRun?: boolean;
+  waitForBatchReady?: boolean;
 };
 
 type PackageInfo = {
@@ -227,6 +258,7 @@ export function createCalypsoMcpServer(options: {
           CALYPSO_RAG_AGENT,
           CALYPSO_UPLOAD_AGENT_FILE,
           CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+          CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
         ],
         resources: [
           "calypso://server-info",
@@ -275,9 +307,19 @@ export function createCalypsoMcpServer(options: {
             name: "Durable knowledge ingestion",
             tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
             steps: [
-              "Upload a source file with optional title, tags, metadata, and idempotencyKey.",
+              "Upload one source file with optional title, tags, metadata, idempotencyKey, and bucket fields.",
               "Pass waitForIndexing when the next step depends on indexed content.",
               "Query the knowledge base with calypso-rag-agent after indexing completes.",
+            ],
+          },
+          {
+            name: "Durable batch knowledge ingestion",
+            tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+            steps: [
+              "Upload 1 to 100 files with a required batchIdempotencyKey.",
+              "Use shared bucketIds, bucketSlugs, bucket, or createMissingBuckets defaults, with optional per-item overrides.",
+              "Use dryRun to validate manifests and waitForBatchReady when the next step depends on batch completion.",
+              "Read item statuses and bucketSync fields to distinguish accepted, queued, indexed, and bucket-ready states.",
             ],
           },
         ],
@@ -400,7 +442,9 @@ export function createCalypsoMcpServer(options: {
           content: {
             type: "text" as const,
             text: [
-              "Call calypso-upload-knowledge-file with waitForIndexing=true when the next answer depends on fresh content.",
+              "Use calypso-upload-knowledge-file for one source file, or calypso-upload-knowledge-files-batch for 2 to 100 files.",
+              "Pass bucket, bucketSlugs, bucketIds, and createMissingBuckets when the files should be assigned to knowledge buckets.",
+              "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
               `Title: ${title || "Knowledge file title"}`,
               `Tags: ${tags || "optional, comma-separated tags"}`,
               `After indexing, ask calypso-rag-agent: ${followUpQuestion || "Summarize the newly indexed knowledge."}`,
@@ -677,6 +721,190 @@ export function createCalypsoMcpServer(options: {
             {
               type: "text" as const,
               text: `Error: Failed to upload file into the knowledge store. ${error}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  server.tool(
+    CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+    [
+      "[CALYPSO UPLOAD KNOWLEDGE FILES BATCH]",
+      "Uploads 1 to 100 files into the durable knowledge store and indexing queue in one request.",
+      "",
+      "Use this for bulk corpus ingestion. Shared bucket fields apply to every item unless an item",
+      "provides its own bucket fields. The tool returns batch-level status and, when requested,",
+      "polls until the batch reaches active, partially_active, partially_failed, failed, or timeout.",
+    ].join("\n"),
+    {
+      items: z
+        .array(
+          z.object({
+            filename: z
+              .string()
+              .describe("Display filename for this knowledge file."),
+            mimeType: z
+              .string()
+              .describe("Content type for this knowledge file."),
+            contentBase64: z
+              .string()
+              .optional()
+              .describe(
+                "Base64-encoded file content. Use this for Smithery or remote execution.",
+              ),
+            filePath: z
+              .string()
+              .optional()
+              .describe(
+                "Local file path to read from disk when the MCP process can access the file.",
+              ),
+            clientFileId: z
+              .string()
+              .optional()
+              .describe(
+                "Optional Firestore-safe id for this batch item. Omit to generate one from filename and item position.",
+              ),
+            title: z
+              .string()
+              .optional()
+              .describe("Optional human-readable title for this item."),
+            tags: z
+              .array(z.string())
+              .optional()
+              .describe("Optional tags for this item."),
+            metadata: z
+              .record(z.unknown())
+              .optional()
+              .describe("Optional metadata for this item."),
+            bucketIds: z
+              .array(z.string())
+              .optional()
+              .describe("Optional existing bucket ids for this item."),
+            bucketSlugs: z
+              .array(z.string())
+              .optional()
+              .describe("Optional bucket slugs for this item."),
+            bucket: z
+              .string()
+              .optional()
+              .describe("Convenience single bucket slug for this item."),
+            createMissingBuckets: z
+              .boolean()
+              .optional()
+              .describe(
+                "If true, create missing bucket slugs for this item before assignment.",
+              ),
+          }),
+        )
+        .min(1)
+        .max(100)
+        .describe("Knowledge files to upload in this batch."),
+      batchIdempotencyKey: z
+        .string()
+        .describe(
+          "Required idempotency key used to derive the durable batch id.",
+        ),
+      bucketIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Optional existing bucket ids applied to all items by default.",
+        ),
+      bucketSlugs: z
+        .array(z.string())
+        .optional()
+        .describe("Optional bucket slugs applied to all items by default."),
+      bucket: z
+        .string()
+        .optional()
+        .describe(
+          "Convenience single bucket slug applied to all items by default.",
+        ),
+      createMissingBuckets: z
+        .boolean()
+        .optional()
+        .describe(
+          "If true, create missing shared bucket slugs before assignment.",
+        ),
+      dryRun: z
+        .boolean()
+        .optional()
+        .describe("If true, validate the batch request without storing files."),
+      waitForBatchReady: z
+        .boolean()
+        .optional()
+        .describe(
+          "If true, poll batch status with include_items=true until terminal or timeout.",
+        ),
+    },
+    async ({
+      items,
+      batchIdempotencyKey,
+      bucketIds,
+      bucketSlugs,
+      bucket,
+      createMissingBuckets,
+      dryRun,
+      waitForBatchReady,
+    }: UploadKnowledgeFilesBatchToolParams) => {
+      try {
+        await logEvent("info", "Uploading knowledge file batch to Calypso.", {
+          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          itemCount: items.length,
+          dryRun: dryRun === true,
+          sharedBucketCount:
+            (bucketIds?.length || 0) +
+            (bucketSlugs?.length || 0) +
+            (bucket ? 1 : 0),
+          waitForBatchReady: waitForBatchReady === true,
+        });
+
+        const result = await uploadKnowledgeFilesBatch(config, {
+          items,
+          batchIdempotencyKey,
+          bucketIds,
+          bucketSlugs,
+          bucket,
+          createMissingBuckets,
+          dryRun,
+          waitForBatchReady,
+        });
+
+        await logEvent("info", "Calypso knowledge batch upload completed.", {
+          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          batchId: result.id,
+          status: result.status || null,
+          accepted: result.accepted ?? null,
+          rejected: result.rejected ?? null,
+          itemCount: result.items?.length || items.length,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatJson(result),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(
+          `Error calling ${CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH}:`,
+          error,
+        );
+        await logEvent("error", "Calypso knowledge batch upload failed.", {
+          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          itemCount: items?.length || 0,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Failed to upload the knowledge-file batch. ${error}`,
             },
           ],
         };

@@ -121,6 +121,28 @@
             "description": "Optional metadata object serialized with the upload.",
             "additionalProperties": true
           },
+          "bucketIds": {
+            "type": "array",
+            "description": "Optional existing knowledge bucket ids to assign this upload to.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bucketSlugs": {
+            "type": "array",
+            "description": "Optional knowledge bucket slugs to assign this upload to.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bucket": {
+            "type": "string",
+            "description": "Convenience single bucket slug for this upload."
+          },
+          "createMissingBuckets": {
+            "type": "boolean",
+            "description": "If true, create missing bucket slugs before assignment."
+          },
           "idempotencyKey": {
             "type": "string",
             "description": "Optional idempotency key for durable upload retries."
@@ -134,6 +156,131 @@
       },
       "annotations": {
         "title": "Calypso Upload Knowledge File",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "optional"
+      }
+    },
+    {
+      "name": "calypso-upload-knowledge-files-batch",
+      "title": "Calypso Upload Knowledge Files Batch",
+      "description": "Upload 1 to 100 files into the durable knowledge store and indexing queue in one request, with shared or per-item bucket assignment.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "description": "Knowledge files to upload in this batch.",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": {
+                  "type": "string",
+                  "description": "Display filename for this knowledge file."
+                },
+                "mimeType": {
+                  "type": "string",
+                  "description": "Content type for this knowledge file."
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+                },
+                "filePath": {
+                  "type": "string",
+                  "description": "Local file path when the MCP process can read from disk."
+                },
+                "clientFileId": {
+                  "type": "string",
+                  "description": "Optional Firestore-safe id for this batch item. Omit to generate one."
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Optional human-readable title for this item."
+                },
+                "tags": {
+                  "type": "array",
+                  "description": "Optional tags for this item.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "metadata": {
+                  "type": "object",
+                  "description": "Optional metadata object for this item.",
+                  "additionalProperties": true
+                },
+                "bucketIds": {
+                  "type": "array",
+                  "description": "Optional existing bucket ids for this item.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "bucketSlugs": {
+                  "type": "array",
+                  "description": "Optional bucket slugs for this item.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "bucket": {
+                  "type": "string",
+                  "description": "Convenience single bucket slug for this item."
+                },
+                "createMissingBuckets": {
+                  "type": "boolean",
+                  "description": "If true, create missing bucket slugs for this item."
+                }
+              },
+              "required": ["filename", "mimeType"]
+            }
+          },
+          "batchIdempotencyKey": {
+            "type": "string",
+            "description": "Required idempotency key used to derive the durable batch id."
+          },
+          "bucketIds": {
+            "type": "array",
+            "description": "Optional existing bucket ids applied to all items by default.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bucketSlugs": {
+            "type": "array",
+            "description": "Optional bucket slugs applied to all items by default.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bucket": {
+            "type": "string",
+            "description": "Convenience single bucket slug applied to all items by default."
+          },
+          "createMissingBuckets": {
+            "type": "boolean",
+            "description": "If true, create missing shared bucket slugs before assignment."
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "If true, validate the batch request without storing files."
+          },
+          "waitForBatchReady": {
+            "type": "boolean",
+            "description": "If true, poll batch status with include_items=true until terminal or timeout."
+          }
+        },
+        "required": ["items", "batchIdempotencyKey"]
+      },
+      "annotations": {
+        "title": "Calypso Upload Knowledge Files Batch",
         "readOnlyHint": false,
         "destructiveHint": true,
         "idempotentHint": false,

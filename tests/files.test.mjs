@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import { resolveUploadContent, stripDataUriPrefix } from "../dist/files.js";
+import {
+  buildKnowledgeBatchManifest,
+  resolveUploadContent,
+  stripDataUriPrefix,
+  uploadKnowledgeFilesBatch,
+} from "../dist/files.js";
 
 test("stripDataUriPrefix removes data URI metadata", () => {
   assert.equal(
@@ -65,4 +70,202 @@ test("resolveUploadContent requires exactly one content source", async () => {
       }),
     /Provide exactly one/,
   );
+});
+
+test("buildKnowledgeBatchManifest generates unique Firestore-safe client_file_id values", () => {
+  const { manifest, clientFileIds } = buildKnowledgeBatchManifest({
+    batchIdempotencyKey: "batch-1",
+    items: [
+      {
+        filename: "Fall of the Berlin Wall.html",
+        mimeType: "text/html",
+        contentBase64: "PGgxPkE8L2gxPg==",
+      },
+      {
+        filename: "Fall of the Berlin Wall.html",
+        mimeType: "text/html",
+        contentBase64: "PGgxPkI8L2gxPg==",
+      },
+    ],
+  });
+
+  assert.equal(manifest.version, 1);
+  assert.equal(manifest.batch_idempotency_key, "batch-1");
+  assert.equal(new Set(clientFileIds).size, 2);
+  for (const clientFileId of clientFileIds) {
+    assert.match(clientFileId, /^[A-Za-z0-9_.-]+$/);
+    assert.equal(clientFileId.startsWith("__"), false);
+  }
+  assert.deepEqual(
+    manifest.items.map((item) => item.client_file_id),
+    clientFileIds,
+  );
+});
+
+test("buildKnowledgeBatchManifest rejects batches over 100 files", () => {
+  assert.throws(
+    () =>
+      buildKnowledgeBatchManifest({
+        batchIdempotencyKey: "too-many",
+        items: Array.from({ length: 101 }, (_, index) => ({
+          filename: `file-${index}.txt`,
+          mimeType: "text/plain",
+          contentBase64: "aGVsbG8=",
+        })),
+      }),
+    /at most 100 files/,
+  );
+});
+
+test("buildKnowledgeBatchManifest includes shared and per-item bucket fields", () => {
+  const { manifest } = buildKnowledgeBatchManifest({
+    batchIdempotencyKey: "bucketed",
+    bucket: "shared-bucket",
+    bucketSlugs: ["shared-slug"],
+    createMissingBuckets: true,
+    items: [
+      {
+        filename: "shared.txt",
+        mimeType: "text/plain",
+        contentBase64: "c2hhcmVk",
+      },
+      {
+        filename: "override.txt",
+        mimeType: "text/plain",
+        contentBase64: "b3ZlcnJpZGU=",
+        bucket: "item-bucket",
+        bucketIds: ["bucket-id-1"],
+        createMissingBuckets: false,
+      },
+    ],
+  });
+
+  assert.equal(manifest.bucket, "shared-bucket");
+  assert.deepEqual(manifest.bucket_slugs, ["shared-slug"]);
+  assert.equal(manifest.create_missing_buckets, true);
+  assert.equal(manifest.items[1].bucket, "item-bucket");
+  assert.deepEqual(manifest.items[1].bucket_ids, ["bucket-id-1"]);
+  assert.equal(manifest.items[1].create_missing_buckets, false);
+});
+
+test("uploadKnowledgeFilesBatch posts multipart manifest and file parts", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    const manifest = JSON.parse(init.body.get("manifest"));
+    const firstFilePart = init.body.get(manifest.items[0].client_file_id);
+    assert.ok(firstFilePart instanceof Blob);
+
+    return new Response(
+      JSON.stringify({
+        id: "batch_123",
+        object: "knowledge_batch",
+        status: "accepted",
+        accepted: 1,
+        rejected: 0,
+      }),
+      {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await uploadKnowledgeFilesBatch(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      {
+        batchIdempotencyKey: "batch-upload",
+        dryRun: true,
+        bucket: "rag1",
+        items: [
+          {
+            filename: "hello.txt",
+            mimeType: "text/plain",
+            contentBase64: "aGVsbG8=",
+          },
+        ],
+      },
+    );
+
+    assert.equal(result.id, "batch_123");
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      "https://api.example.test/v1/knowledge/files:batch?dry_run=true",
+    );
+    assert.equal(calls[0].init.method, "POST");
+    assert.equal(calls[0].init.headers.get("Authorization"), "Bearer sk-test");
+    const manifest = JSON.parse(calls[0].init.body.get("manifest"));
+    assert.equal(manifest.bucket, "rag1");
+    assert.equal(manifest.items[0].filename, "hello.txt");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("uploadKnowledgeFilesBatch polls batch status with include_items=true", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    if (String(url).endsWith("/knowledge/files:batch")) {
+      return new Response(
+        JSON.stringify({
+          id: "batch_poll",
+          status: "accepted",
+        }),
+        {
+          status: 202,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        id: "batch_poll",
+        status: "active",
+        items: [{ client_file_id: "one", status: "active" }],
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await uploadKnowledgeFilesBatch(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      {
+        batchIdempotencyKey: "batch-poll",
+        waitForBatchReady: true,
+        items: [
+          {
+            filename: "hello.txt",
+            mimeType: "text/plain",
+            contentBase64: "aGVsbG8=",
+          },
+        ],
+      },
+    );
+
+    assert.equal(result.status, "active");
+    assert.equal(calls.length, 2);
+    assert.equal(
+      calls[1].url,
+      "https://api.example.test/v1/knowledge/batches/batch_poll?include_items=true",
+    );
+    assert.equal(calls[1].init.method, "GET");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

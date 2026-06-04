@@ -12,6 +12,7 @@ const requiredTools = {
   "calypso-rag-agent": ["prompt"],
   "calypso-upload-agent-file": ["filename", "mimeType"],
   "calypso-upload-knowledge-file": ["filename", "mimeType"],
+  "calypso-upload-knowledge-files-batch": ["items", "batchIdempotencyKey"],
 };
 
 const requiredResources = [

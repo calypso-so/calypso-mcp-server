@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -62,6 +63,38 @@ export type KnowledgeFileObject = {
   [key: string]: unknown;
 };
 
+export type KnowledgeBatchItemObject = {
+  client_file_id?: string;
+  clientFileId?: string;
+  status?: string;
+  file?: KnowledgeFileObject;
+  knowledgeId?: string;
+  taskId?: string;
+  canonicalStatus?: string;
+  bucketSyncStatus?: string;
+  bucketSync?: Record<string, unknown>;
+  error?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type KnowledgeBatchObject = {
+  id: string;
+  object?: "knowledge_batch";
+  status?: string;
+  message?: string;
+  total?: number;
+  accepted?: number;
+  rejected?: number;
+  queued?: number;
+  indexing?: number;
+  active?: number;
+  partialFailedCount?: number;
+  failed?: number;
+  items?: KnowledgeBatchItemObject[];
+  request_id?: string;
+  [key: string]: unknown;
+};
+
 export type UploadAgentFileParams = {
   filename: string;
   mimeType: string;
@@ -87,6 +120,32 @@ export type UploadKnowledgeFileParams = {
   waitForIndexing?: boolean;
 };
 
+export type UploadKnowledgeBatchItemParams = {
+  filename: string;
+  mimeType: string;
+  contentBase64?: string;
+  filePath?: string;
+  clientFileId?: string;
+  title?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
+};
+
+export type UploadKnowledgeFilesBatchParams = {
+  items: UploadKnowledgeBatchItemParams[];
+  batchIdempotencyKey: string;
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+  createMissingBuckets?: boolean;
+  dryRun?: boolean;
+  waitForBatchReady?: boolean;
+};
+
 export type KnowledgeUploadResult = {
   file: KnowledgeFileObject;
   task?: KnowledgeTaskObject | null;
@@ -98,6 +157,7 @@ const KNOWLEDGE_READY_STATE = "indexed";
 const KNOWLEDGE_ERROR_STATES = new Set(["failed", "deleted"]);
 const OPENAI_POLL_MAX_ATTEMPTS = 40;
 const KNOWLEDGE_POLL_MAX_ATTEMPTS = 40;
+const KNOWLEDGE_BATCH_MAX_FILES = 100;
 const POLL_INITIAL_DELAY_MS = 1000;
 const POLL_MAX_DELAY_MS = 4000;
 const POLL_BACKOFF_MULTIPLIER = 1.5;
@@ -156,6 +216,22 @@ async function parseResponseBody(response: Response): Promise<unknown> {
 
 function formatApiError(status: number, body: unknown): string {
   if (body && typeof body === "object") {
+    if ("error" in body && body.error && typeof body.error === "object") {
+      const error = body.error as {
+        code?: unknown;
+        message?: unknown;
+        retryable?: unknown;
+        details?: unknown;
+      };
+      const code = typeof error.code === "string" ? error.code : "api_error";
+      const message =
+        typeof error.message === "string" ? error.message : "Request failed.";
+      const details =
+        error.details && typeof error.details === "object"
+          ? ` details=${JSON.stringify(error.details)}`
+          : "";
+      return `Request failed with status ${status}: ${code}: ${message}${details}`;
+    }
     const maybeError =
       "error" in body && typeof body.error === "string"
         ? body.error
@@ -255,6 +331,127 @@ function createMultipartFile(content: ResolvedUploadContent): Blob {
   return new Blob([content.bytes], {
     type: content.mimeType || DEFAULT_MIME_TYPE,
   });
+}
+
+function sanitizeClientFileId(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[^A-Za-z0-9_.-]+/g, "_")
+    .replace(/^_+/, "")
+    .slice(0, 80);
+  return sanitized && !sanitized.startsWith("__") ? sanitized : "file";
+}
+
+function uniqueClientFileId(
+  item: UploadKnowledgeBatchItemParams,
+  index: number,
+  seen: Set<string>,
+): string {
+  const explicit = String(item.clientFileId || "").trim();
+  if (explicit) {
+    if (
+      explicit.length > 128 ||
+      explicit.startsWith("__") ||
+      !/^[A-Za-z0-9_.-]+$/.test(explicit)
+    ) {
+      throw new Error("clientFileId must be Firestore-safe.");
+    }
+    if (seen.has(explicit)) {
+      throw new Error("clientFileId values must be unique.");
+    }
+    seen.add(explicit);
+    return explicit;
+  }
+
+  const seed = explicit || `${index}:${item.filename}:${item.filePath || ""}`;
+  const digest = createHash("sha256").update(seed).digest("hex").slice(0, 16);
+  const base = sanitizeClientFileId(explicit || item.filename || "file");
+  let candidate = `${base}_${digest}`.slice(0, 128);
+  let suffix = 2;
+
+  while (seen.has(candidate)) {
+    const suffixText = `_${suffix}`;
+    candidate = `${candidate.slice(0, 128 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+
+  seen.add(candidate);
+  return candidate;
+}
+
+function compactStringArray(values?: string[]): string[] | undefined {
+  const out = (values || [])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return out.length > 0 ? out : undefined;
+}
+
+function applyBucketFields(
+  target: Record<string, unknown>,
+  source: {
+    bucketIds?: string[];
+    bucketSlugs?: string[];
+    bucket?: string;
+    createMissingBuckets?: boolean;
+  },
+): void {
+  const bucketIds = compactStringArray(source.bucketIds);
+  const bucketSlugs = compactStringArray(source.bucketSlugs);
+  const bucket = String(source.bucket || "").trim();
+
+  if (bucketIds) target.bucket_ids = bucketIds;
+  if (bucketSlugs) target.bucket_slugs = bucketSlugs;
+  if (bucket) target.bucket = bucket;
+  if (typeof source.createMissingBuckets === "boolean") {
+    target.create_missing_buckets = source.createMissingBuckets;
+  }
+}
+
+export function buildKnowledgeBatchManifest(
+  params: UploadKnowledgeFilesBatchParams,
+): { manifest: Record<string, unknown>; clientFileIds: string[] } {
+  if (!Array.isArray(params.items) || params.items.length === 0) {
+    throw new Error("Batch upload requires at least one item.");
+  }
+
+  if (params.items.length > KNOWLEDGE_BATCH_MAX_FILES) {
+    throw new Error(
+      `Batch upload supports at most ${KNOWLEDGE_BATCH_MAX_FILES} files.`,
+    );
+  }
+
+  const batchIdempotencyKey = String(params.batchIdempotencyKey || "").trim();
+  if (!batchIdempotencyKey) {
+    throw new Error("batchIdempotencyKey is required for batch uploads.");
+  }
+
+  const seen = new Set<string>();
+  const clientFileIds: string[] = [];
+  const manifest: Record<string, unknown> = {
+    version: 1,
+    batch_idempotency_key: batchIdempotencyKey,
+  };
+  applyBucketFields(manifest, params);
+
+  manifest.items = params.items.map((item, index) => {
+    const clientFileId = uniqueClientFileId(item, index, seen);
+    clientFileIds.push(clientFileId);
+    const payload: Record<string, unknown> = {
+      client_file_id: clientFileId,
+      filename: item.filename,
+    };
+
+    if (item.title?.trim()) payload.title = item.title.trim();
+    const tags = compactStringArray(item.tags);
+    if (tags) payload.tags = tags;
+    if (item.metadata && Object.keys(item.metadata).length > 0) {
+      payload.metadata = item.metadata;
+    }
+    applyBucketFields(payload, item);
+    return payload;
+  });
+
+  return { manifest, clientFileIds };
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -509,4 +706,95 @@ export async function uploadKnowledgeFile(
   }
 
   return waitForKnowledgeFileIndexed(config, file.id, file.task?.id || null);
+}
+
+export async function uploadKnowledgeFilesBatch(
+  config: CalypsoRuntimeConfig,
+  params: UploadKnowledgeFilesBatchParams,
+): Promise<KnowledgeBatchObject> {
+  const { manifest, clientFileIds } = buildKnowledgeBatchManifest(params);
+  const form = new FormData();
+  form.set("manifest", JSON.stringify(manifest));
+
+  for (const [index, item] of params.items.entries()) {
+    const content = await resolveUploadContent(item);
+    form.set(
+      clientFileIds[index],
+      createMultipartFile(content),
+      item.filename || content.filename,
+    );
+  }
+
+  const relativePath = params.dryRun
+    ? "/knowledge/files:batch?dry_run=true"
+    : "/knowledge/files:batch";
+  const batch = await requestJson<KnowledgeBatchObject>(config, relativePath, {
+    method: "POST",
+    body: form,
+  });
+
+  if (params.waitForBatchReady !== true) {
+    return batch;
+  }
+
+  return waitForKnowledgeBatchReady(config, batch.id);
+}
+
+export async function getKnowledgeBatch(
+  config: CalypsoRuntimeConfig,
+  batchId: string,
+  includeItems = true,
+): Promise<KnowledgeBatchObject> {
+  const id = String(batchId || "").trim();
+  if (!id) {
+    throw new Error("batchId is required.");
+  }
+
+  const query = includeItems ? "?include_items=true" : "";
+  return requestJson<KnowledgeBatchObject>(
+    config,
+    `/knowledge/batches/${encodeURIComponent(id)}${query}`,
+    {
+      method: "GET",
+    },
+  );
+}
+
+function isKnowledgeBatchTerminal(batch: KnowledgeBatchObject): boolean {
+  return ["active", "partially_active", "partially_failed", "failed"].includes(
+    String(batch.status || "")
+      .trim()
+      .toLowerCase(),
+  );
+}
+
+export async function waitForKnowledgeBatchReady(
+  config: CalypsoRuntimeConfig,
+  batchId: string,
+): Promise<KnowledgeBatchObject> {
+  let delayMs = POLL_INITIAL_DELAY_MS;
+  let last: KnowledgeBatchObject | undefined;
+
+  for (let attempt = 0; attempt < KNOWLEDGE_POLL_MAX_ATTEMPTS; attempt += 1) {
+    last = await getKnowledgeBatch(config, batchId, true);
+    if (isKnowledgeBatchTerminal(last)) {
+      return last;
+    }
+
+    if (attempt < KNOWLEDGE_POLL_MAX_ATTEMPTS - 1) {
+      await sleep(delayMs);
+      delayMs = Math.min(
+        POLL_MAX_DELAY_MS,
+        Math.round(delayMs * POLL_BACKOFF_MULTIPLIER),
+      );
+    }
+  }
+
+  return {
+    ...(last || { id: batchId }),
+    status: last?.status || "timeout",
+    message:
+      last?.message ||
+      "Batch was accepted but did not reach a terminal status before timeout.",
+  };
 }

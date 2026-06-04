@@ -6,6 +6,7 @@ All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented
 
 ### Added
 
+- Added `calypso-upload-knowledge-files-batch` for durable batch knowledge ingestion with bucket assignment.
 - Added knowledge bucket assignment options for durable knowledge-file uploads.
 - Added MCP Registry metadata and publishing automation for `io.github.calypso-so/multimodal-rag-mcp-server`.
 - Added Archestra MCP Catalog Trust Score badge and catalog submission instructions.

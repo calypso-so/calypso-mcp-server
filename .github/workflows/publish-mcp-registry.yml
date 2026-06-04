@@ -107,14 +107,55 @@ jobs:
           echo "${PACKAGE_NAME}@${PACKAGE_VERSION} was not available on npm in time."
           exit 1
 
+      - name: Check MCP Registry version
+        id: registry-version
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const serverJson = JSON.parse(fs.readFileSync("server.json", "utf8"));
+          const expectedName = serverJson.name;
+          const expectedVersion = serverJson.version;
+          const searchUrl = `https://registry.modelcontextprotocol.io/v0.1/servers?search=${encodeURIComponent(expectedName)}`;
+
+          async function main() {
+            const response = await fetch(searchUrl);
+            if (!response.ok) {
+              throw new Error(`Registry search failed with ${response.status}: ${await response.text()}`);
+            }
+
+            const result = await response.json();
+            const servers = Array.isArray(result.servers) ? result.servers : [];
+            const exists = servers.some((entry) => {
+              const server = entry.server ?? entry;
+              return server.name === expectedName && server.version === expectedVersion;
+            });
+
+            console.log(
+              exists
+                ? `${expectedName}@${expectedVersion} is already published to the MCP Registry.`
+                : `${expectedName}@${expectedVersion} is not published to the MCP Registry yet.`,
+            );
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `published=${exists}\n`);
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
       - name: Install mcp-publisher
+        if: steps.registry-version.outputs.published == 'false'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
 
       - name: Authenticate to MCP Registry
+        if: steps.registry-version.outputs.published == 'false'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish to MCP Registry
+        if: steps.registry-version.outputs.published == 'false'
         run: ./mcp-publisher publish
 
       - name: Verify MCP Registry listing
