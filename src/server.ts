@@ -19,10 +19,7 @@ import {
   uploadKnowledgeFile,
   uploadKnowledgeFilesBatch,
 } from "./files.js";
-import {
-  modelIdsFromCatalog,
-  type CalypsoRagModelCatalog,
-} from "./models.js";
+import { type CalypsoRagModelCatalog, modelIdsFromCatalog } from "./models.js";
 
 type RagPromptParams = {
   prompt: string;
@@ -190,7 +187,9 @@ export function createCalypsoMcpServer(options: {
   let calypsoClient: OpenAI | null = null;
   const discoveredModelIds = modelIdsFromCatalog(modelCatalog);
   const discoveredModelIdSet = new Set(discoveredModelIds);
-  const modelListText = discoveredModelIds.map((modelId) => `\`${modelId}\``).join(", ");
+  const modelListText = discoveredModelIds
+    .map((modelId) => `\`${modelId}\``)
+    .join(", ");
 
   function resolveRagModelId(value?: string): string {
     const modelId = String(value || "").trim() || modelCatalog.defaultModel;
@@ -1063,7 +1062,9 @@ export function createCalypsoMcpServer(options: {
           model: selectedModel,
           conversationId: conversationState.conversationId,
           fileCount: normalizedFileIds?.length || 0,
-          continuesPreviousResponse: Boolean(conversationState.previousResponseId),
+          continuesPreviousResponse: Boolean(
+            conversationState.previousResponseId,
+          ),
         });
 
         const request: CalypsoResponsesRequest = {

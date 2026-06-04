@@ -23,7 +23,9 @@ type RagAgentModelsResponse = {
 
 const DISCOVERY_TIMEOUT_MS = 2000;
 
-export function fallbackRagModelCatalog(error?: unknown): CalypsoRagModelCatalog {
+export function fallbackRagModelCatalog(
+  error?: unknown,
+): CalypsoRagModelCatalog {
   return {
     models: [
       {
@@ -37,18 +39,28 @@ export function fallbackRagModelCatalog(error?: unknown): CalypsoRagModelCatalog
     defaultModel: CALYPSO_RAG_AGENT,
     fetchedAt: null,
     source: "fallback",
-    error: error instanceof Error ? error.message : error ? String(error) : undefined,
+    error:
+      error instanceof Error
+        ? error.message
+        : error
+          ? String(error)
+          : undefined,
   };
 }
 
-function buildApiUrl(config: CalypsoRuntimeConfig, relativePath: string): string {
+function buildApiUrl(
+  config: CalypsoRuntimeConfig,
+  relativePath: string,
+): string {
   const normalizedPath = relativePath.startsWith("/")
     ? relativePath.slice(1)
     : relativePath;
   return new URL(normalizedPath, `${config.apiBaseUrl}/`).toString();
 }
 
-function normalizeModelDescriptor(value: unknown): CalypsoRagModelDescriptor | null {
+function normalizeModelDescriptor(
+  value: unknown,
+): CalypsoRagModelDescriptor | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -77,7 +89,9 @@ function normalizeModelDescriptor(value: unknown): CalypsoRagModelDescriptor | n
   };
 }
 
-function normalizeCatalog(response: RagAgentModelsResponse): CalypsoRagModelCatalog {
+function normalizeCatalog(
+  response: RagAgentModelsResponse,
+): CalypsoRagModelCatalog {
   const data = Array.isArray(response.data) ? response.data : [];
   const seen = new Set<string>();
   const models = data
