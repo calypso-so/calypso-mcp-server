@@ -20,6 +20,7 @@ Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https:
 - **`calypso-upload-agent-file`**: uploads a file into the agent store and returns a compatible OpenAI-style `file_id`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
 - **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with shared or per-item bucket assignment
+- **Automatic RAG variant discovery**: at startup, the MCP uses your Calypso API key to load team-scoped model variants such as `calypso-rag-agent:pricing`
 
 The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
 
@@ -56,6 +57,7 @@ To add this server to Archestra, fork [`archestra-ai/website`](https://github.co
 With `calypso-rag-agent` you can:
 
 - Ask grounded questions against the configured Calypso knowledge base
+- Select any discovered team RAG variant with the optional `model` argument
 - Continue a multi-turn conversation via the native `/v1/responses` conversation model
 - Reset the conversation context with `/new`
 - Use the same OpenAI-compatible Responses endpoint that serves `calypso-rag-agent`
@@ -66,6 +68,7 @@ With `calypso-rag-agent` you can:
 - Node.js 18+
 - A Calypso API endpoint that exposes:
   - `POST /v1/responses`
+  - `GET /v1/rag-agent/models`
   - `POST /v1/knowledge/files`
   - `POST /v1/knowledge/files:batch`
   - `GET /v1/knowledge/batches/{batch_id}`
@@ -201,6 +204,9 @@ Direct Calypso RAG agent access.
 
 Notes:
 - It does not auto-route to other personas or agents.
+- It automatically discovers the API key's available `calypso-rag-agent` variants at startup.
+- Use the optional `model` argument to choose a named variant such as `calypso-rag-agent:pricing`.
+- Each model variant keeps its own MCP conversation chain, so switching variants does not continue the wrong thread.
 - It uses `POST /v1/responses` instead of `POST /v1/chat/completions`.
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
 - Optional `fileIds` are attached as `input_file` parts and use `metadata._aicore.file_input_strategy = "rag_policy"` for retrieval-backed agent-store semantics.
@@ -242,6 +248,9 @@ Notes:
 
 ### `calypso://server-info`
 Read-only server metadata, including package version, API base URL, transport, authentication model, and exposed capabilities.
+
+### `calypso://rag-agent-models`
+Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
 
 ### `calypso://workflows`
 A compact guide to the supported RAG, agent-file, and knowledge-file workflows.

@@ -11,6 +11,7 @@ import {
   parseCliOptions,
   resolveRuntimeConfig,
 } from "./config.js";
+import { loadRagModelCatalog } from "./models.js";
 import { createCalypsoMcpServer } from "./server.js";
 
 type PackageInfo = {
@@ -62,9 +63,11 @@ async function main() {
       cli: cliOptions,
       env: process.env,
     });
+    const modelCatalog = await loadRagModelCatalog(runtimeConfig);
 
     const server = createCalypsoMcpServer({
       config: runtimeConfig,
+      modelCatalog,
       packageInfo,
     });
 

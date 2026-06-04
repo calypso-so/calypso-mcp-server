@@ -19,10 +19,15 @@ import {
   uploadKnowledgeFile,
   uploadKnowledgeFilesBatch,
 } from "./files.js";
+import {
+  modelIdsFromCatalog,
+  type CalypsoRagModelCatalog,
+} from "./models.js";
 
 type RagPromptParams = {
   prompt: string;
   fileIds?: string[];
+  model?: string;
 };
 
 type UploadAgentFileToolParams = {
@@ -148,10 +153,11 @@ function normalizeFileIds(fileIds?: string[]): string[] | undefined {
 function buildResponsesMetadata(options: {
   conversationId: string;
   fileIds?: string[];
+  modelId: string;
 }): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     tool: "mcp",
-    agent: CALYPSO_RAG_AGENT,
+    agent: options.modelId,
     conversation_id: options.conversationId,
   };
 
@@ -177,10 +183,24 @@ function requireApiKey(config: CalypsoRuntimeConfig): string {
 
 export function createCalypsoMcpServer(options: {
   config: CalypsoRuntimeConfig;
+  modelCatalog: CalypsoRagModelCatalog;
   packageInfo: PackageInfo;
 }): McpServer {
-  const { config, packageInfo } = options;
+  const { config, modelCatalog, packageInfo } = options;
   let calypsoClient: OpenAI | null = null;
+  const discoveredModelIds = modelIdsFromCatalog(modelCatalog);
+  const discoveredModelIdSet = new Set(discoveredModelIds);
+  const modelListText = discoveredModelIds.map((modelId) => `\`${modelId}\``).join(", ");
+
+  function resolveRagModelId(value?: string): string {
+    const modelId = String(value || "").trim() || modelCatalog.defaultModel;
+    if (!discoveredModelIdSet.has(modelId)) {
+      throw new Error(
+        `Unknown Calypso RAG model \`${modelId}\`. Available models: ${discoveredModelIds.join(", ")}`,
+      );
+    }
+    return modelId;
+  }
 
   function getCalypsoClient(): OpenAI {
     if (!calypsoClient) {
@@ -252,6 +272,7 @@ export function createCalypsoMcpServer(options: {
         package: packageInfo,
         apiBaseUrl: config.apiBaseUrl,
         apiKeyConfigured: Boolean(config.apiKey),
+        ragModels: modelCatalog,
         transport: "stdio",
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
         tools: [
@@ -262,6 +283,7 @@ export function createCalypsoMcpServer(options: {
         ],
         resources: [
           "calypso://server-info",
+          "calypso://rag-agent-models",
           "calypso://workflows",
           "calypso://security",
         ],
@@ -272,6 +294,17 @@ export function createCalypsoMcpServer(options: {
           "calypso-reset-conversation",
         ],
       }),
+  );
+
+  server.resource(
+    "calypso-rag-agent-models",
+    "calypso://rag-agent-models",
+    {
+      description:
+        "Team-scoped Calypso RAG agent model variants discovered from the configured API key.",
+      mimeType: "application/json",
+    },
+    (uri) => textResource(uri.toString(), modelCatalog),
   );
 
   server.resource(
@@ -288,8 +321,10 @@ export function createCalypsoMcpServer(options: {
           {
             name: "Knowledge retrieval",
             tool: CALYPSO_RAG_AGENT,
+            models: discoveredModelIds,
             steps: [
               "Ask a grounded question using the prompt argument.",
+              `Optionally choose a model variant from: ${discoveredModelIds.join(", ")}.`,
               "Use /new to reset the current MCP conversation.",
               "Ask follow-up questions to reuse the backend response chain.",
             ],
@@ -375,6 +410,7 @@ export function createCalypsoMcpServer(options: {
             type: "text" as const,
             text: [
               "Use calypso-rag-agent to answer from the configured Calypso knowledge base.",
+              `Available RAG models: ${modelListText}.`,
               `Topic: ${topic || "Describe the topic or question here."}`,
               constraints
                 ? `Constraints: ${constraints}`
@@ -408,6 +444,7 @@ export function createCalypsoMcpServer(options: {
             type: "text" as const,
             text: [
               "Call calypso-rag-agent with the supplied fileIds so the MCP applies rag_policy retrieval semantics.",
+              `Available RAG models: ${modelListText}.`,
               `fileIds: ${fileIds || "file_..."}`,
               `Question: ${question || "Ask a focused question about the uploaded file contents."}`,
             ].join("\n"),
@@ -445,6 +482,7 @@ export function createCalypsoMcpServer(options: {
               "Use calypso-upload-knowledge-file for one source file, or calypso-upload-knowledge-files-batch for 2 to 100 files.",
               "Pass bucket, bucketSlugs, bucketIds, and createMissingBuckets when the files should be assigned to knowledge buckets.",
               "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
+              `Query with one of these RAG models after indexing: ${modelListText}.`,
               `Title: ${title || "Knowledge file title"}`,
               `Tags: ${tags || "optional, comma-separated tags"}`,
               `After indexing, ask calypso-rag-agent: ${followUpQuestion || "Summarize the newly indexed knowledge."}`,
@@ -465,7 +503,7 @@ export function createCalypsoMcpServer(options: {
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: "Call calypso-rag-agent with prompt `/new` before starting the next unrelated topic.",
+            text: "Call calypso-rag-agent with prompt `/new` before starting the next unrelated topic. Include a model when only one variant should reset.",
           },
         },
       ],
@@ -474,8 +512,34 @@ export function createCalypsoMcpServer(options: {
 
   // MCP session state is intentionally per-process. The backend maintains the
   // real conversation thread through previous_response_id chaining.
-  let conversationId = `conv_${randomUUID().replace(/-/g, "")}`;
-  let previousResponseId: string | null = null;
+  type ConversationState = {
+    conversationId: string;
+    previousResponseId: string | null;
+  };
+  const conversationStates = new Map<string, ConversationState>();
+
+  function newConversationState(): ConversationState {
+    return {
+      conversationId: `conv_${randomUUID().replace(/-/g, "")}`,
+      previousResponseId: null,
+    };
+  }
+
+  function getConversationState(modelId: string): ConversationState {
+    const existing = conversationStates.get(modelId);
+    if (existing) {
+      return existing;
+    }
+    const next = newConversationState();
+    conversationStates.set(modelId, next);
+    return next;
+  }
+
+  function resetConversationState(modelId: string): ConversationState {
+    const next = newConversationState();
+    conversationStates.set(modelId, next);
+    return next;
+  }
 
   server.tool(
     CALYPSO_UPLOAD_AGENT_FILE,
@@ -505,7 +569,9 @@ export function createCalypsoMcpServer(options: {
       targetModel: z
         .string()
         .optional()
-        .describe("Optional RAG agent id. Defaults to `calypso-rag-agent`."),
+        .describe(
+          `Optional RAG agent id. Defaults to \`${modelCatalog.defaultModel}\`. Available models: ${discoveredModelIds.join(", ")}.`,
+        ),
       waitForReady: z
         .boolean()
         .optional()
@@ -530,12 +596,13 @@ export function createCalypsoMcpServer(options: {
           waitForReady: waitForReady !== false,
         });
 
+        const selectedTargetModel = resolveRagModelId(targetModel);
         const uploaded = await uploadAgentFile(config, {
           filename,
           mimeType,
           contentBase64,
           filePath,
-          targetModel: String(targetModel || "").trim() || CALYPSO_RAG_AGENT,
+          targetModel: selectedTargetModel,
           waitForReady,
         });
 
@@ -938,6 +1005,8 @@ export function createCalypsoMcpServer(options: {
       '- "Summarize the latest indexed knowledge about WhatsApp templates"',
       '- "Find the source of truth for campaign approval behavior"',
       '- "Start a new topic" (or use `/new`)',
+      "",
+      `Available RAG models: ${discoveredModelIds.join(", ")}.`,
     ].join("\n"),
     {
       prompt: z
@@ -951,18 +1020,34 @@ export function createCalypsoMcpServer(options: {
         .describe(
           "Optional uploaded agent-store `file_id` values to attach with `rag_policy` retrieval semantics.",
         ),
+      model: z
+        .string()
+        .optional()
+        .describe(
+          `Optional RAG model variant. Defaults to \`${modelCatalog.defaultModel}\`. Available models: ${discoveredModelIds.join(", ")}.`,
+        ),
     },
-    async ({ prompt, fileIds }: RagPromptParams) => {
+    async ({ prompt, fileIds, model }: RagPromptParams) => {
       try {
         const userText = (prompt || "").trim();
         const normalizedFileIds = normalizeFileIds(fileIds);
+        const selectedModel = resolveRagModelId(model);
+        const conversationState = getConversationState(selectedModel);
         if (userText === "/new") {
-          conversationId = `conv_${randomUUID().replace(/-/g, "")}`;
-          previousResponseId = null;
-          await logEvent("notice", "Calypso RAG conversation reset.", {
-            tool: CALYPSO_RAG_AGENT,
-            conversationId,
-          });
+          if (String(model || "").trim()) {
+            const resetState = resetConversationState(selectedModel);
+            await logEvent("notice", "Calypso RAG conversation reset.", {
+              tool: CALYPSO_RAG_AGENT,
+              model: selectedModel,
+              conversationId: resetState.conversationId,
+            });
+          } else {
+            conversationStates.clear();
+            await logEvent("notice", "Calypso RAG conversations reset.", {
+              tool: CALYPSO_RAG_AGENT,
+              models: discoveredModelIds,
+            });
+          }
           return {
             content: [
               {
@@ -975,13 +1060,14 @@ export function createCalypsoMcpServer(options: {
 
         await logEvent("info", "Calling Calypso RAG agent.", {
           tool: CALYPSO_RAG_AGENT,
-          conversationId,
+          model: selectedModel,
+          conversationId: conversationState.conversationId,
           fileCount: normalizedFileIds?.length || 0,
-          continuesPreviousResponse: Boolean(previousResponseId),
+          continuesPreviousResponse: Boolean(conversationState.previousResponseId),
         });
 
         const request: CalypsoResponsesRequest = {
-          model: CALYPSO_RAG_AGENT,
+          model: selectedModel,
           input: [
             {
               role: "user",
@@ -1000,15 +1086,16 @@ export function createCalypsoMcpServer(options: {
           stream: true,
           store: true,
           metadata: buildResponsesMetadata({
-            conversationId,
+            conversationId: conversationState.conversationId,
             fileIds: normalizedFileIds,
+            modelId: selectedModel,
           }),
         };
 
-        if (previousResponseId) {
-          request.previous_response_id = previousResponseId;
+        if (conversationState.previousResponseId) {
+          request.previous_response_id = conversationState.previousResponseId;
         } else {
-          request.conversation = { id: conversationId };
+          request.conversation = { id: conversationState.conversationId };
         }
 
         // Calypso/AIcore accepts Responses fields that this SDK version does not
@@ -1019,12 +1106,16 @@ export function createCalypsoMcpServer(options: {
         );
         const result = await processStreamingResponse(response);
         if (result.responseId) {
-          previousResponseId = result.responseId;
+          conversationStates.set(selectedModel, {
+            conversationId: conversationState.conversationId,
+            previousResponseId: result.responseId,
+          });
         }
 
         await logEvent("info", "Calypso RAG agent response completed.", {
           tool: CALYPSO_RAG_AGENT,
-          conversationId,
+          model: selectedModel,
+          conversationId: conversationState.conversationId,
           responseId: result.responseId,
           textLength: result.text.length,
         });
@@ -1041,7 +1132,7 @@ export function createCalypsoMcpServer(options: {
         console.error(`Error calling ${CALYPSO_RAG_AGENT}:`, error);
         await logEvent("error", "Calypso RAG agent call failed.", {
           tool: CALYPSO_RAG_AGENT,
-          conversationId,
+          model: String(model || "").trim() || modelCatalog.defaultModel,
           error: error instanceof Error ? error.message : String(error),
         });
         return {
