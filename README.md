@@ -17,10 +17,11 @@ Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https:
 ## What you get
 
 - **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
-- **`calypso-upload-agent-file`**: uploads a file into the agent store and returns a compatible OpenAI-style `file_id`
+- **`calypso-upload-agent-file`**: uploads a file through the agent-facing API, backed by one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`
 - **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
 - **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with shared or per-item bucket assignment
 - **Automatic RAG variant discovery**: at startup, the MCP uses your Calypso API key to load team-scoped model variants such as `calypso-rag-agent:pricing`
+- **Automatic bucket discovery**: discovered RAG variants include active bucket metadata so upload tools can auto-select single-bucket variants and require explicit selection for multi-bucket variants
 
 The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
 
@@ -69,6 +70,7 @@ With `calypso-rag-agent` you can:
 - A Calypso API endpoint that exposes:
   - `POST /v1/responses`
   - `GET /v1/rag-agent/models`
+  - `POST /v1/files`
   - `POST /v1/knowledge/files`
   - `POST /v1/knowledge/files:batch`
   - `GET /v1/knowledge/batches/{batch_id}`
@@ -209,17 +211,36 @@ Notes:
 - Each model variant keeps its own MCP conversation chain, so switching variants does not continue the wrong thread.
 - It uses `POST /v1/responses` instead of `POST /v1/chat/completions`.
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
-- Optional `fileIds` are attached as `input_file` parts and use `metadata._aicore.file_input_strategy = "rag_policy"` for retrieval-backed agent-store semantics.
+- Optional `fileIds` are supported for compatibility, but new agent-file uploads are bucket-backed and should be indexed into the selected model bucket before asking.
 - Use `/new` as the prompt to reset the MCP conversation.
 
 ### `calypso-upload-agent-file`
-Uploads a file into the agent store and returns a compatible OpenAI-style `file_id`.
+Uploads a file through the agent-facing `/v1/files` API, backed by exactly one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`.
 
 Notes:
 - Sends `purpose=user_data` on the upload request.
-- Sends `target_model` so the file lands in the intended agent store instead of a generic attachment path.
+- Sends `target_model` so the upload is routed to the intended RAG variant.
+- Sends `bucket_id` so the durable knowledge file lands in the selected bucket.
+- If the selected model has one active bucket, the MCP auto-selects that bucket.
+- If the selected model has multiple active buckets, pass `bucketId`.
+- If the selected model has no active buckets, bind that agent variant to a knowledge bucket before uploading.
 - Supports either `contentBase64` for remote execution or `filePath` for local desktop usage.
 - Can optionally wait until the file is RAG-ready before returning.
+
+Example:
+
+```json
+{
+  "filename": "contract.pdf",
+  "mimeType": "application/pdf",
+  "filePath": "/Users/me/Desktop/contract.pdf",
+  "targetModel": "calypso-rag-agent:legal",
+  "bucketId": "bucket_abc123",
+  "waitForReady": true
+}
+```
+
+Read `calypso://rag-agent-models` to inspect each discovered model's `buckets` array before choosing `bucketId`.
 
 ### `calypso-upload-knowledge-file`
 Uploads a file into the durable knowledge store and indexing pipeline.
@@ -250,7 +271,7 @@ Notes:
 Read-only server metadata, including package version, API base URL, transport, authentication model, and exposed capabilities.
 
 ### `calypso://rag-agent-models`
-Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
+Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
 
 ### `calypso://workflows`
 A compact guide to the supported RAG, agent-file, and knowledge-file workflows.

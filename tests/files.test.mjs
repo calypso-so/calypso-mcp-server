@@ -8,6 +8,7 @@ import {
   buildKnowledgeBatchManifest,
   resolveUploadContent,
   stripDataUriPrefix,
+  uploadAgentFile,
   uploadKnowledgeFilesBatch,
 } from "../dist/files.js";
 
@@ -146,6 +147,64 @@ test("buildKnowledgeBatchManifest includes shared and per-item bucket fields", (
   assert.equal(manifest.items[1].bucket, "item-bucket");
   assert.deepEqual(manifest.items[1].bucket_ids, ["bucket-id-1"]);
   assert.equal(manifest.items[1].create_missing_buckets, false);
+});
+
+test("uploadAgentFile posts target model and bucket id", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    assert.equal(init.body.get("purpose"), "user_data");
+    assert.equal(init.body.get("target_model"), "calypso-rag-agent:pricing");
+    assert.equal(init.body.get("bucket_id"), "bucket-pricing");
+    assert.ok(init.body.get("file") instanceof Blob);
+
+    return new Response(
+      JSON.stringify({
+        id: "file-123",
+        object: "file",
+        bytes: 5,
+        created_at: 1,
+        filename: "hello.txt",
+        purpose: "user_data",
+        status: "processed",
+        metadata: {
+          bucket_id: "bucket-pricing",
+          rag_readiness: { state: "active", label: "Ready", is_ready: true },
+        },
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await uploadAgentFile(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      {
+        filename: "hello.txt",
+        mimeType: "text/plain",
+        contentBase64: "aGVsbG8=",
+        targetModel: "calypso-rag-agent:pricing",
+        bucketId: "bucket-pricing",
+        waitForReady: false,
+      },
+    );
+
+    assert.equal(result.id, "file-123");
+    assert.equal(result.metadata.bucket_id, "bucket-pricing");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://api.example.test/v1/files");
+    assert.equal(calls[0].init.method, "POST");
+    assert.equal(calls[0].init.headers.get("Authorization"), "Bearer sk-test");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("uploadKnowledgeFilesBatch posts multipart manifest and file parts", async () => {

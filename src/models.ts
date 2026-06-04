@@ -6,6 +6,17 @@ export type CalypsoRagModelDescriptor = {
   profile_id?: string | null;
   source?: string;
   enabled?: boolean;
+  bucket_ids: string[];
+  buckets: CalypsoRagBucketDescriptor[];
+  missing_bucket_ids: string[];
+};
+
+export type CalypsoRagBucketDescriptor = {
+  id: string;
+  name?: string;
+  slug?: string;
+  status?: string;
+  member_count?: number;
 };
 
 export type CalypsoRagModelCatalog = {
@@ -34,6 +45,9 @@ export function fallbackRagModelCatalog(
         profile_id: null,
         source: "default_policy",
         enabled: true,
+        bucket_ids: [],
+        buckets: [],
+        missing_bucket_ids: [],
       },
     ],
     defaultModel: CALYPSO_RAG_AGENT,
@@ -86,6 +100,59 @@ function normalizeModelDescriptor(
         ? raw.source.trim()
         : undefined,
     enabled: typeof raw.enabled === "boolean" ? raw.enabled : undefined,
+    bucket_ids: normalizeStringArray(raw.bucket_ids),
+    buckets: normalizeBuckets(raw.buckets),
+    missing_bucket_ids: normalizeStringArray(raw.missing_bucket_ids),
+  };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  const values = Array.isArray(value) ? value : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of values) {
+    const normalized = String(item || "").trim();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function normalizeBuckets(value: unknown): CalypsoRagBucketDescriptor[] {
+  const buckets = Array.isArray(value) ? value : [];
+  return buckets
+    .map(normalizeBucket)
+    .filter((bucket): bucket is CalypsoRagBucketDescriptor => Boolean(bucket));
+}
+
+function normalizeBucket(value: unknown): CalypsoRagBucketDescriptor | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const id = String(raw.id || "").trim();
+  if (!id) {
+    return null;
+  }
+  return {
+    id,
+    name:
+      typeof raw.name === "string" && raw.name.trim()
+        ? raw.name.trim()
+        : undefined,
+    slug:
+      typeof raw.slug === "string" && raw.slug.trim()
+        ? raw.slug.trim()
+        : undefined,
+    status:
+      typeof raw.status === "string" && raw.status.trim()
+        ? raw.status.trim()
+        : undefined,
+    member_count:
+      typeof raw.member_count === "number" ? raw.member_count : undefined,
   };
 }
 
@@ -112,6 +179,9 @@ function normalizeCatalog(
       profile_id: null,
       source: "default_policy",
       enabled: true,
+      bucket_ids: [],
+      buckets: [],
+      missing_bucket_ids: [],
     });
   }
 

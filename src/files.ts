@@ -22,6 +22,7 @@ export type OpenAiFileRagReadiness = {
 export type OpenAiFileMetadata = {
   knowledge_id?: string | null;
   knowledge_task_id?: string | null;
+  bucket_id?: string | null;
   attachment_targets?: Array<Record<string, unknown>>;
   attachment_target_count?: number;
   rag_readiness?: OpenAiFileRagReadiness | null;
@@ -101,6 +102,7 @@ export type UploadAgentFileParams = {
   contentBase64?: string;
   filePath?: string;
   targetModel: string;
+  bucketId: string;
   waitForReady?: boolean;
 };
 
@@ -556,6 +558,7 @@ export async function uploadAgentFile(
   const form = new FormData();
   form.set("purpose", "user_data");
   form.set("target_model", params.targetModel);
+  form.set("bucket_id", params.bucketId);
   form.set("file", createMultipartFile(content), content.filename);
 
   const uploaded = await requestJson<OpenAiFileObject>(config, "/files", {

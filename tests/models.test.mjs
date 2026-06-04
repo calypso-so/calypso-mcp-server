@@ -40,6 +40,17 @@ test("loadRagModelCatalog parses REST model discovery response", async () => {
             profile_id: null,
             source: "default_policy",
             enabled: true,
+            bucket_ids: ["bucket-default"],
+            buckets: [
+              {
+                id: "bucket-default",
+                name: "Default Docs",
+                slug: "default-docs",
+                status: "active",
+                member_count: 3,
+              },
+            ],
+            missing_bucket_ids: [],
           },
           {
             id: "calypso-rag-agent:pricing",
@@ -47,6 +58,16 @@ test("loadRagModelCatalog parses REST model discovery response", async () => {
             profile_id: "pricing",
             source: "named_profile",
             enabled: true,
+            bucket_ids: ["bucket-pricing", "missing-bucket"],
+            buckets: [
+              {
+                id: "bucket-pricing",
+                name: "Pricing Docs",
+                slug: "pricing-docs",
+                status: "active",
+              },
+            ],
+            missing_bucket_ids: ["missing-bucket"],
           },
         ],
       }),
@@ -68,6 +89,9 @@ test("loadRagModelCatalog parses REST model discovery response", async () => {
       "calypso-rag-agent",
       "calypso-rag-agent:pricing",
     ]);
+    assert.deepEqual(catalog.models[0].bucket_ids, ["bucket-default"]);
+    assert.equal(catalog.models[0].buckets[0].name, "Default Docs");
+    assert.deepEqual(catalog.models[1].missing_bucket_ids, ["missing-bucket"]);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "https://api.example.test/v1/rag-agent/models");
     assert.equal(calls[0].init.method, "GET");
