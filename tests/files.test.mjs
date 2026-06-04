@@ -9,6 +9,7 @@ import {
   resolveUploadContent,
   stripDataUriPrefix,
   uploadAgentFile,
+  uploadKnowledgeFile,
   uploadKnowledgeFilesBatch,
 } from "../dist/files.js";
 
@@ -76,6 +77,7 @@ test("resolveUploadContent requires exactly one content source", async () => {
 test("buildKnowledgeBatchManifest generates unique Firestore-safe client_file_id values", () => {
   const { manifest, clientFileIds } = buildKnowledgeBatchManifest({
     batchIdempotencyKey: "batch-1",
+    bucket: "docs",
     items: [
       {
         filename: "Fall of the Berlin Wall.html",
@@ -100,6 +102,23 @@ test("buildKnowledgeBatchManifest generates unique Firestore-safe client_file_id
   assert.deepEqual(
     manifest.items.map((item) => item.client_file_id),
     clientFileIds,
+  );
+});
+
+test("buildKnowledgeBatchManifest rejects batches without bucket destinations", () => {
+  assert.throws(
+    () =>
+      buildKnowledgeBatchManifest({
+        batchIdempotencyKey: "no-bucket",
+        items: [
+          {
+            filename: "hello.txt",
+            mimeType: "text/plain",
+            contentBase64: "aGVsbG8=",
+          },
+        ],
+      }),
+    /bucket destination/,
   );
 });
 
@@ -207,6 +226,72 @@ test("uploadAgentFile posts target model and bucket id", async () => {
   }
 });
 
+test("uploadKnowledgeFile posts required bucket fields", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    assert.equal(init.body.get("bucket_ids"), "bucket-1");
+    assert.ok(init.body.get("file") instanceof Blob);
+
+    return new Response(
+      JSON.stringify({
+        id: "file-123",
+        object: "knowledge_file",
+        status: "queued",
+        title: "hello",
+        filename: "hello.txt",
+        content_type: "text/plain",
+        size_bytes: 5,
+        task: { id: "task-123", status: "queued" },
+      }),
+      {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await uploadKnowledgeFile(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      {
+        filename: "hello.txt",
+        mimeType: "text/plain",
+        contentBase64: "aGVsbG8=",
+        bucketIds: ["bucket-1"],
+      },
+    );
+
+    assert.equal(result.file.id, "file-123");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://api.example.test/v1/knowledge/files");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("uploadKnowledgeFile rejects missing bucket destination", async () => {
+  await assert.rejects(
+    () =>
+      uploadKnowledgeFile(
+        {
+          apiBaseUrl: "https://api.example.test/v1",
+          apiKey: "sk-test",
+        },
+        {
+          filename: "hello.txt",
+          mimeType: "text/plain",
+          contentBase64: "aGVsbG8=",
+        },
+      ),
+    /bucketIds, bucketSlugs, or bucket/,
+  );
+});
+
 test("uploadKnowledgeFilesBatch posts multipart manifest and file parts", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
@@ -306,6 +391,7 @@ test("uploadKnowledgeFilesBatch polls batch status with include_items=true", asy
       },
       {
         batchIdempotencyKey: "batch-poll",
+        bucket: "rag1",
         waitForBatchReady: true,
         items: [
           {

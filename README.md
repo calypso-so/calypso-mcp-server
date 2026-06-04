@@ -18,8 +18,8 @@ Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https:
 
 - **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
 - **`calypso-upload-agent-file`**: uploads a file through the agent-facing API, backed by one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`
-- **`calypso-upload-knowledge-file`**: uploads durable knowledge files for indexing and retrieval
-- **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with shared or per-item bucket assignment
+- **`calypso-upload-knowledge-file`**: uploads durable knowledge files into required bucket destinations for indexing and retrieval
+- **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with required shared or per-item bucket assignment
 - **Automatic RAG variant discovery**: at startup, the MCP uses your Calypso API key to load team-scoped model variants such as `calypso-rag-agent:pricing`
 - **Automatic bucket discovery**: discovered RAG variants include active bucket metadata so upload tools can auto-select single-bucket variants and require explicit selection for multi-bucket variants
 
@@ -243,15 +243,29 @@ Example:
 Read `calypso://rag-agent-models` to inspect each discovered model's `buckets` array before choosing `bucketId`.
 
 ### `calypso-upload-knowledge-file`
-Uploads a file into the durable knowledge store and indexing pipeline.
+Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.
 
 Notes:
 - Uses `POST /v1/knowledge/files`.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
-- Supports optional `title`, `tags`, `metadata`, `idempotencyKey`, and knowledge bucket assignment.
+- Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
+- Supports optional `title`, `tags`, `metadata`, and `idempotencyKey`.
 - Route uploads into existing buckets with `bucketIds` or `bucketSlugs`, or use `bucket` as a single-slug shortcut.
 - Pass `createMissingBuckets: true` with bucket slugs when you want Calypso to create missing destinations during upload.
 - Can optionally wait until indexing reaches a ready state before returning.
+
+Example:
+
+```json
+{
+  "filename": "handbook.pdf",
+  "mimeType": "application/pdf",
+  "filePath": "/Users/me/Desktop/handbook.pdf",
+  "bucket": "support-handbook",
+  "createMissingBuckets": true,
+  "waitForIndexing": true
+}
+```
 
 ### `calypso-upload-knowledge-files-batch`
 Uploads 1 to 100 files into the durable knowledge store in one request.
@@ -259,11 +273,30 @@ Uploads 1 to 100 files into the durable knowledge store in one request.
 Notes:
 - Uses `POST /v1/knowledge/files:batch` with a JSON manifest plus one multipart file part per item.
 - Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
+- Requires a shared bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`, unless every item provides its own bucket destination.
 - Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
 - Generates Firestore-safe `client_file_id` values when `clientFileId` is omitted.
 - Supports `dryRun: true` to validate manifest and bucket behavior without storing files.
 - `accepted` or `queued` means the upload is durable, not necessarily query-ready. Use `waitForBatchReady: true` to poll `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
 - Inspect per-item status, `bucketSyncStatus`, and `bucketSync` to distinguish indexed content from bucket-ready retrieval.
+
+Example:
+
+```json
+{
+  "batchIdempotencyKey": "kb-seed-2026-06-04",
+  "bucket": "support-handbook",
+  "createMissingBuckets": true,
+  "items": [
+    {
+      "filename": "faq.txt",
+      "mimeType": "text/plain",
+      "filePath": "/Users/me/Desktop/faq.txt"
+    }
+  ],
+  "waitForBatchReady": true
+}
+```
 
 ## Available resources
 

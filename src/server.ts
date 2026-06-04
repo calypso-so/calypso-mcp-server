@@ -262,6 +262,49 @@ export function createCalypsoMcpServer(options: {
     );
   }
 
+  function hasKnowledgeBucketDestination(value: {
+    bucketIds?: string[];
+    bucketSlugs?: string[];
+    bucket?: string;
+  }): boolean {
+    return Boolean(
+      (value.bucketIds || []).some((item) => String(item || "").trim()) ||
+        (value.bucketSlugs || []).some((item) => String(item || "").trim()) ||
+        String(value.bucket || "").trim(),
+    );
+  }
+
+  function requireKnowledgeBucketDestination(
+    value: {
+      bucketIds?: string[];
+      bucketSlugs?: string[];
+      bucket?: string;
+    },
+    context: string,
+  ): void {
+    if (!hasKnowledgeBucketDestination(value)) {
+      throw new Error(`${context} requires bucketIds, bucketSlugs, or bucket.`);
+    }
+  }
+
+  function requireBatchBucketDestinations(
+    value: UploadKnowledgeFilesBatchToolParams,
+  ): void {
+    if (hasKnowledgeBucketDestination(value)) return;
+    const missing = value.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !hasKnowledgeBucketDestination(item))
+      .map(
+        ({ item, index }) =>
+          item.clientFileId || item.filename || `item ${index + 1}`,
+      );
+    if (missing.length > 0) {
+      throw new Error(
+        `Batch knowledge uploads require a shared bucket destination or a bucket destination on every item. Missing: ${missing.join(", ")}`,
+      );
+    }
+  }
+
   function getCalypsoClient(): OpenAI {
     if (!calypsoClient) {
       calypsoClient = new OpenAI({
@@ -542,7 +585,7 @@ export function createCalypsoMcpServer(options: {
             type: "text" as const,
             text: [
               "Use calypso-upload-knowledge-file for one source file, or calypso-upload-knowledge-files-batch for 2 to 100 files.",
-              "Pass bucket, bucketSlugs, bucketIds, and createMissingBuckets when the files should be assigned to knowledge buckets.",
+              "Pass bucket, bucketSlugs, or bucketIds; durable knowledge uploads require a bucket destination.",
               "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
               `Query with one of these RAG models after indexing: ${modelListText}.`,
               `Title: ${title || "Knowledge file title"}`,
@@ -727,10 +770,11 @@ export function createCalypsoMcpServer(options: {
     CALYPSO_UPLOAD_KNOWLEDGE_FILE,
     [
       "[CALYPSO UPLOAD KNOWLEDGE FILE]",
-      "Uploads a file into the durable knowledge store and indexing pipeline.",
+      "Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.",
       "",
       "Use this when you want a file indexed into the broader knowledge corpus instead of",
       "attached directly to a single RAG chat turn. This tool returns knowledge-file and task metadata.",
+      "A bucket destination is required: pass bucketIds, bucketSlugs, or bucket.",
     ].join("\n"),
     {
       filename: z
@@ -771,16 +815,20 @@ export function createCalypsoMcpServer(options: {
         .array(z.string())
         .optional()
         .describe(
-          "Optional existing knowledge bucket ids to assign this upload to.",
+          "Existing knowledge bucket ids to assign this upload to. Required unless bucketSlugs or bucket is provided.",
         ),
       bucketSlugs: z
         .array(z.string())
         .optional()
-        .describe("Optional knowledge bucket slugs to assign this upload to."),
+        .describe(
+          "Knowledge bucket slugs to assign this upload to. Required unless bucketIds or bucket is provided.",
+        ),
       bucket: z
         .string()
         .optional()
-        .describe("Convenience single bucket slug for this upload."),
+        .describe(
+          "Convenience single bucket slug for this upload. Required unless bucketIds or bucketSlugs is provided.",
+        ),
       createMissingBuckets: z
         .boolean()
         .optional()
@@ -812,6 +860,10 @@ export function createCalypsoMcpServer(options: {
       waitForIndexing,
     }: UploadKnowledgeFileToolParams) => {
       try {
+        requireKnowledgeBucketDestination(
+          { bucketIds, bucketSlugs, bucket },
+          CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+        );
         await logEvent("info", "Uploading file to Calypso knowledge store.", {
           tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
           filename,
@@ -886,6 +938,7 @@ export function createCalypsoMcpServer(options: {
       "Use this for bulk corpus ingestion. Shared bucket fields apply to every item unless an item",
       "provides its own bucket fields. The tool returns batch-level status and, when requested,",
       "polls until the batch reaches active, partially_active, partially_failed, failed, or timeout.",
+      "A shared bucket destination is required unless every item provides its own bucket destination.",
     ].join("\n"),
     {
       items: z
@@ -930,15 +983,21 @@ export function createCalypsoMcpServer(options: {
             bucketIds: z
               .array(z.string())
               .optional()
-              .describe("Optional existing bucket ids for this item."),
+              .describe(
+                "Existing bucket ids for this item. Required when no shared bucket destination is provided.",
+              ),
             bucketSlugs: z
               .array(z.string())
               .optional()
-              .describe("Optional bucket slugs for this item."),
+              .describe(
+                "Bucket slugs for this item. Required when no shared bucket destination is provided.",
+              ),
             bucket: z
               .string()
               .optional()
-              .describe("Convenience single bucket slug for this item."),
+              .describe(
+                "Convenience single bucket slug for this item. Required when no shared bucket destination is provided.",
+              ),
             createMissingBuckets: z
               .boolean()
               .optional()
@@ -959,17 +1018,19 @@ export function createCalypsoMcpServer(options: {
         .array(z.string())
         .optional()
         .describe(
-          "Optional existing bucket ids applied to all items by default.",
+          "Existing bucket ids applied to all items by default. Required unless every item has a bucket destination.",
         ),
       bucketSlugs: z
         .array(z.string())
         .optional()
-        .describe("Optional bucket slugs applied to all items by default."),
+        .describe(
+          "Bucket slugs applied to all items by default. Required unless every item has a bucket destination.",
+        ),
       bucket: z
         .string()
         .optional()
         .describe(
-          "Convenience single bucket slug applied to all items by default.",
+          "Convenience single bucket slug applied to all items by default. Required unless every item has a bucket destination.",
         ),
       createMissingBuckets: z
         .boolean()
@@ -999,6 +1060,16 @@ export function createCalypsoMcpServer(options: {
       waitForBatchReady,
     }: UploadKnowledgeFilesBatchToolParams) => {
       try {
+        requireBatchBucketDestinations({
+          items,
+          batchIdempotencyKey,
+          bucketIds,
+          bucketSlugs,
+          bucket,
+          createMissingBuckets,
+          dryRun,
+          waitForBatchReady,
+        });
         await logEvent("info", "Uploading knowledge file batch to Calypso.", {
           tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
           itemCount: items.length,

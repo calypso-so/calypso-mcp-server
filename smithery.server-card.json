@@ -85,7 +85,7 @@
     {
       "name": "calypso-upload-knowledge-file",
       "title": "Calypso Upload Knowledge File",
-      "description": "Upload a file into the durable knowledge store and indexing pipeline. This tool returns knowledge-file and task metadata and should be used for corpus ingestion rather than direct per-turn chat attachment.",
+      "description": "Upload a file into the durable bucket-backed knowledge store and indexing pipeline. This tool returns knowledge-file and task metadata and requires bucketIds, bucketSlugs, or bucket.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -123,21 +123,21 @@
           },
           "bucketIds": {
             "type": "array",
-            "description": "Optional existing knowledge bucket ids to assign this upload to.",
+            "description": "Existing knowledge bucket ids to assign this upload to. Required unless bucketSlugs or bucket is provided.",
             "items": {
               "type": "string"
             }
           },
           "bucketSlugs": {
             "type": "array",
-            "description": "Optional knowledge bucket slugs to assign this upload to.",
+            "description": "Knowledge bucket slugs to assign this upload to. Required unless bucketIds or bucket is provided.",
             "items": {
               "type": "string"
             }
           },
           "bucket": {
             "type": "string",
-            "description": "Convenience single bucket slug for this upload."
+            "description": "Convenience single bucket slug for this upload. Required unless bucketIds or bucketSlugs is provided."
           },
           "createMissingBuckets": {
             "type": "boolean",
@@ -168,7 +168,7 @@
     {
       "name": "calypso-upload-knowledge-files-batch",
       "title": "Calypso Upload Knowledge Files Batch",
-      "description": "Upload 1 to 100 files into the durable knowledge store and indexing queue in one request, with shared or per-item bucket assignment.",
+      "description": "Upload 1 to 100 files into the durable knowledge store and indexing queue in one request. A shared bucket destination is required unless every item has its own bucket destination.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -218,21 +218,21 @@
                 },
                 "bucketIds": {
                   "type": "array",
-                  "description": "Optional existing bucket ids for this item.",
+                  "description": "Existing bucket ids for this item. Required when no shared bucket destination is provided.",
                   "items": {
                     "type": "string"
                   }
                 },
                 "bucketSlugs": {
                   "type": "array",
-                  "description": "Optional bucket slugs for this item.",
+                  "description": "Bucket slugs for this item. Required when no shared bucket destination is provided.",
                   "items": {
                     "type": "string"
                   }
                 },
                 "bucket": {
                   "type": "string",
-                  "description": "Convenience single bucket slug for this item."
+                  "description": "Convenience single bucket slug for this item. Required when no shared bucket destination is provided."
                 },
                 "createMissingBuckets": {
                   "type": "boolean",
@@ -248,21 +248,21 @@
           },
           "bucketIds": {
             "type": "array",
-            "description": "Optional existing bucket ids applied to all items by default.",
+            "description": "Existing bucket ids applied to all items by default. Required unless every item has a bucket destination.",
             "items": {
               "type": "string"
             }
           },
           "bucketSlugs": {
             "type": "array",
-            "description": "Optional bucket slugs applied to all items by default.",
+            "description": "Bucket slugs applied to all items by default. Required unless every item has a bucket destination.",
             "items": {
               "type": "string"
             }
           },
           "bucket": {
             "type": "string",
-            "description": "Convenience single bucket slug applied to all items by default."
+            "description": "Convenience single bucket slug applied to all items by default. Required unless every item has a bucket destination."
           },
           "createMissingBuckets": {
             "type": "boolean",

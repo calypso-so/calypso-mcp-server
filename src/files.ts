@@ -388,6 +388,18 @@ function compactStringArray(values?: string[]): string[] | undefined {
   return out.length > 0 ? out : undefined;
 }
 
+function hasBucketDestination(source: {
+  bucketIds?: string[];
+  bucketSlugs?: string[];
+  bucket?: string;
+}): boolean {
+  return Boolean(
+    compactStringArray(source.bucketIds) ||
+      compactStringArray(source.bucketSlugs) ||
+      String(source.bucket || "").trim(),
+  );
+}
+
 function applyBucketFields(
   target: Record<string, unknown>,
   source: {
@@ -434,8 +446,14 @@ export function buildKnowledgeBatchManifest(
     batch_idempotency_key: batchIdempotencyKey,
   };
   applyBucketFields(manifest, params);
+  const hasSharedBucketDestination = hasBucketDestination(params);
 
   manifest.items = params.items.map((item, index) => {
+    if (!hasSharedBucketDestination && !hasBucketDestination(item)) {
+      throw new Error(
+        "Batch knowledge uploads require a shared bucket destination or a bucket destination on every item.",
+      );
+    }
     const clientFileId = uniqueClientFileId(item, index, seen);
     clientFileIds.push(clientFileId);
     const payload: Record<string, unknown> = {
@@ -647,6 +665,11 @@ export async function uploadKnowledgeFile(
   config: CalypsoRuntimeConfig,
   params: UploadKnowledgeFileParams,
 ): Promise<KnowledgeUploadResult> {
+  if (!hasBucketDestination(params)) {
+    throw new Error(
+      "Knowledge file uploads require bucketIds, bucketSlugs, or bucket.",
+    );
+  }
   const content = await resolveUploadContent(params);
   const form = new FormData();
   form.set("file", createMultipartFile(content), content.filename);
