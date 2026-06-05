@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
+import { FormDataEncoder } from "form-data-encoder";
+import { File, FormData } from "formdata-node";
 
 import type { CalypsoRuntimeConfig } from "./config.js";
 
@@ -273,6 +276,26 @@ async function requestJson<T>(
   return body as T;
 }
 
+async function requestMultipartJson<T>(
+  config: CalypsoRuntimeConfig,
+  relativePath: string,
+  form: FormData,
+  init: Omit<RequestInit, "body"> & { headers?: HeadersInit } = {},
+): Promise<T> {
+  const encoder = new FormDataEncoder(form);
+  const headers = new Headers(init.headers);
+  for (const [key, value] of Object.entries(encoder.headers)) {
+    headers.set(key, value);
+  }
+
+  return requestJson<T>(config, relativePath, {
+    ...init,
+    headers,
+    body: Readable.from(encoder) as unknown as BodyInit,
+    duplex: "half",
+  } as RequestInit & { headers?: HeadersInit });
+}
+
 export function stripDataUriPrefix(value: string): string {
   const marker = ";base64,";
   const markerIndex = value.indexOf(marker);
@@ -329,8 +352,8 @@ export async function resolveUploadContent(
   };
 }
 
-function createMultipartFile(content: ResolvedUploadContent): Blob {
-  return new Blob([content.bytes], {
+function createMultipartFile(content: ResolvedUploadContent): File {
+  return new File([content.bytes], content.filename, {
     type: content.mimeType || DEFAULT_MIME_TYPE,
   });
 }
@@ -579,10 +602,14 @@ export async function uploadAgentFile(
   form.set("bucket_id", params.bucketId);
   form.set("file", createMultipartFile(content), content.filename);
 
-  const uploaded = await requestJson<OpenAiFileObject>(config, "/files", {
-    method: "POST",
-    body: form,
-  });
+  const uploaded = await requestMultipartJson<OpenAiFileObject>(
+    config,
+    "/files",
+    form,
+    {
+      method: "POST",
+    },
+  );
 
   if (params.waitForReady === false) {
     return uploaded;
@@ -712,13 +739,13 @@ export async function uploadKnowledgeFile(
     headers.set("Idempotency-Key", params.idempotencyKey.trim());
   }
 
-  const file = await requestJson<KnowledgeFileObject>(
+  const file = await requestMultipartJson<KnowledgeFileObject>(
     config,
     "/knowledge/files",
+    form,
     {
       method: "POST",
       headers,
-      body: form,
     },
   );
 
@@ -754,10 +781,14 @@ export async function uploadKnowledgeFilesBatch(
   const relativePath = params.dryRun
     ? "/knowledge/files:batch?dry_run=true"
     : "/knowledge/files:batch";
-  const batch = await requestJson<KnowledgeBatchObject>(config, relativePath, {
-    method: "POST",
-    body: form,
-  });
+  const batch = await requestMultipartJson<KnowledgeBatchObject>(
+    config,
+    relativePath,
+    form,
+    {
+      method: "POST",
+    },
+  );
 
   if (params.waitForBatchReady !== true) {
     return batch;

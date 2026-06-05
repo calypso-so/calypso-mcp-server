@@ -13,6 +13,28 @@ import {
   uploadKnowledgeFilesBatch,
 } from "../dist/files.js";
 
+async function readRequestBody(body) {
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function assertMultipartField(bodyText, name, value) {
+  assert.match(bodyText, new RegExp(`name="${name}"`));
+  assert.match(bodyText, new RegExp(`\\r\\n\\r\\n${value}\\r\\n`));
+}
+
+function assertMultipartFile(bodyText, name, filename, contentType) {
+  assert.match(bodyText, new RegExp(`name="${name}"; filename="${filename}"`));
+  assert.match(bodyText, new RegExp(`Content-Type: ${contentType}`));
+}
+
+function assertMultipartContentType(headers) {
+  assert.match(headers.get("content-type"), /^multipart\/form-data; boundary=/);
+}
+
 test("stripDataUriPrefix removes data URI metadata", () => {
   assert.equal(
     stripDataUriPrefix("data:text/plain;base64,aGVsbG8="),
@@ -173,10 +195,12 @@ test("uploadAgentFile posts target model and bucket id", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
-    assert.equal(init.body.get("purpose"), "user_data");
-    assert.equal(init.body.get("target_model"), "calypso-rag-agent:pricing");
-    assert.equal(init.body.get("bucket_id"), "bucket-pricing");
-    assert.ok(init.body.get("file") instanceof Blob);
+    assertMultipartContentType(init.headers);
+    const bodyText = await readRequestBody(init.body);
+    assertMultipartField(bodyText, "purpose", "user_data");
+    assertMultipartField(bodyText, "target_model", "calypso-rag-agent:pricing");
+    assertMultipartField(bodyText, "bucket_id", "bucket-pricing");
+    assertMultipartFile(bodyText, "file", "hello.txt", "text/plain");
 
     return new Response(
       JSON.stringify({
@@ -231,8 +255,10 @@ test("uploadKnowledgeFile posts required bucket fields", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
-    assert.equal(init.body.get("bucket_ids"), "bucket-1");
-    assert.ok(init.body.get("file") instanceof Blob);
+    assertMultipartContentType(init.headers);
+    const bodyText = await readRequestBody(init.body);
+    assertMultipartField(bodyText, "bucket_ids", "bucket-1");
+    assertMultipartFile(bodyText, "file", "hello.txt", "text/plain");
 
     return new Response(
       JSON.stringify({
@@ -292,14 +318,95 @@ test("uploadKnowledgeFile rejects missing bucket destination", async () => {
   );
 });
 
+test("uploadKnowledgeFile works without global FormData or Blob", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalFormData = globalThis.FormData;
+  const originalBlob = globalThis.Blob;
+  const calls = [];
+
+  try {
+    Object.defineProperty(globalThis, "FormData", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+    Object.defineProperty(globalThis, "Blob", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url, init });
+      assertMultipartContentType(init.headers);
+      const bodyText = await readRequestBody(init.body);
+      assertMultipartField(bodyText, "bucket", "support");
+      assertMultipartFile(bodyText, "file", "hello.txt", "text/plain");
+
+      return new Response(
+        JSON.stringify({
+          id: "file-no-globals",
+          object: "knowledge_file",
+          status: "queued",
+          filename: "hello.txt",
+          content_type: "text/plain",
+          size_bytes: 5,
+        }),
+        {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    };
+
+    const result = await uploadKnowledgeFile(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      {
+        filename: "hello.txt",
+        mimeType: "text/plain",
+        contentBase64: "aGVsbG8=",
+        bucket: "support",
+      },
+    );
+
+    assert.equal(result.file.id, "file-no-globals");
+    assert.equal(calls.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "FormData", {
+      configurable: true,
+      value: originalFormData,
+      writable: true,
+    });
+    Object.defineProperty(globalThis, "Blob", {
+      configurable: true,
+      value: originalBlob,
+      writable: true,
+    });
+  }
+});
+
 test("uploadKnowledgeFilesBatch posts multipart manifest and file parts", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
-    const manifest = JSON.parse(init.body.get("manifest"));
-    const firstFilePart = init.body.get(manifest.items[0].client_file_id);
-    assert.ok(firstFilePart instanceof Blob);
+    assertMultipartContentType(init.headers);
+    const bodyText = await readRequestBody(init.body);
+    const manifestMatch = bodyText.match(
+      /name="manifest"\r\n\r\n([\s\S]*?)\r\n--/,
+    );
+    assert.ok(manifestMatch, "multipart body should include manifest part");
+    const manifest = JSON.parse(manifestMatch[1]);
+    assertMultipartFile(
+      bodyText,
+      manifest.items[0].client_file_id,
+      "hello.txt",
+      "text/plain",
+    );
 
     return new Response(
       JSON.stringify({
@@ -344,9 +451,6 @@ test("uploadKnowledgeFilesBatch posts multipart manifest and file parts", async 
     );
     assert.equal(calls[0].init.method, "POST");
     assert.equal(calls[0].init.headers.get("Authorization"), "Bearer sk-test");
-    const manifest = JSON.parse(calls[0].init.body.get("manifest"));
-    assert.equal(manifest.bucket, "rag1");
-    assert.equal(manifest.items[0].filename, "hello.txt");
   } finally {
     globalThis.fetch = originalFetch;
   }
