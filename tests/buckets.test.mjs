@@ -19,8 +19,18 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
         description: "",
         status: "active",
         knowledgeIds: ["file-1", "file-1", ""],
+        fileKnowledgeIds: ["file-1", "file-1", ""],
         memberCount: 1,
-        counts: { total: 1, file: 1, ignored: "nope" },
+        rawMemberCount: 3,
+        fileCount: 1,
+        retrievableFileCount: 1,
+        staleMemberCount: 2,
+        counts: {
+          raw_members: 3,
+          file: 1,
+          retrievable_files: 1,
+          ignored: "nope",
+        },
         bucketStore: {
           status: "active",
           member_count: 1,
@@ -45,7 +55,15 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
   assert.equal(result.buckets[0].id, "bucket-1");
   assert.equal(result.buckets[0].description, null);
   assert.deepEqual(result.buckets[0].knowledgeIds, ["file-1"]);
-  assert.deepEqual(result.buckets[0].counts, { total: 1, file: 1 });
+  assert.deepEqual(result.buckets[0].fileKnowledgeIds, ["file-1"]);
+  assert.equal(result.buckets[0].fileCount, 1);
+  assert.equal(result.buckets[0].rawMemberCount, 3);
+  assert.equal(result.buckets[0].staleMemberCount, 2);
+  assert.deepEqual(result.buckets[0].counts, {
+    raw_members: 3,
+    file: 1,
+    retrievable_files: 1,
+  });
   assert.equal(result.buckets[0].bucketStore.status, "active");
 });
 

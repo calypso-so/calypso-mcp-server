@@ -1,30 +1,70 @@
 # Calypso Multimodal RAG MCP Server
 
+**The easiest hosted multimodal RAG MCP server** for Claude Desktop, Cursor, and agent workflows.
+
+One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts, diagrams, and images **natively** with verifiable citations.
+
 [![smithery badge](https://smithery.ai/badge/multimodal-rag/calypso-mcp-server)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/calypso-so/calypso-mcp-server)](https://archestra.ai/mcp-catalog/calypso-so__calypso-mcp-server)
 [![npm version](https://img.shields.io/npm/v/@calypsohq/multimodal-rag-mcp-server)](https://www.npmjs.com/package/@calypsohq/multimodal-rag-mcp-server)
+[![GitHub stars](https://img.shields.io/github/stars/calypso-so/calypso-mcp-server?style=social)](https://github.com/calypso-so/calypso-mcp-server)
+[![Multimodal RAG](https://img.shields.io/badge/Multimodal_RAG-Gemini_File_Search-blue)](https://docs.calypso.so)
+[![One command](https://img.shields.io/badge/One_Command-npx-success)](https://www.npmjs.com/package/@calypsohq/multimodal-rag-mcp-server)
 [![License](https://img.shields.io/github/license/calypso-so/calypso-mcp-server)](./LICENSE)
 [![CI](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml)
 
-This MCP server exposes the **Calypso Multimodal RAG agent** to MCP clients such as Cursor and Claude Desktop. Calypso is a hosted, Gemini File Search-powered multimodal RAG layer for grounded answers across PDFs, docs, screenshots, charts, diagrams, help content, FAQs, images, and internal knowledge.
+> The easiest way to add **hosted multimodal RAG** to Claude, Cursor, Windsurf, and custom agents.
+
+- **Super simple setup**: `npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-your-key-here`
+- **True multimodal RAG**: handles text and visuals natively through Gemini File Search
+- **Upload and query**: dedicated tools for agent files, durable knowledge files, and batch uploads
+- **Multi-turn conversations**: context-aware answers with `/new` reset
+- **Discoverable workflows**: resources and prompts for safe RAG, upload, and ingestion flows
+
+[GitHub](https://github.com/calypso-so/calypso-mcp-server) | [Docs](https://docs.calypso.so) | [Smithery](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server) | [Official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.calypso-so/multimodal-rag-mcp-server)
+
+Tags: `multimodal-rag`, `easiest-mcp-rag`, `gemini-rag`, `hosted-rag-mcp`, `mcp-server`
 
 Instead of wiring each agent or workflow to a one-off document search stack, use this MCP as the agent-facing entry point to one reusable answer layer: upload source material once, retrieve across text and visual content, and return answers with evidence users can verify.
 
-Docs: [https://docs.calypso.so](https://docs.calypso.so)
+## Quick Start (Easiest)
 
-Official MCP Registry: [`io.github.calypso-so/multimodal-rag-mcp-server`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.calypso-so/multimodal-rag-mcp-server)
+```bash
+# One-liner with npx
+npx -y @calypsohq/multimodal-rag-mcp-server --api-key "sk-your-key-here"
+```
+
+Or with environment variables:
+
+```bash
+CALYPSO_API_KEY="sk-..." npx -y @calypsohq/multimodal-rag-mcp-server
+```
+
+Then add the same command to Claude Desktop, Cursor, or Smithery using the configuration examples below.
+
+## Why Choose Calypso
+
+Calypso is built for teams that want the easiest hosted multimodal RAG MCP server: no local vector stack, no Docker compose, and no custom OCR or image-processing pipeline before agents can ask grounded questions.
+
+| Feature | Calypso | rag-anything-mcp | Pixeltable |
+| --- | --- | --- | --- |
+| **Setup** | 1 npx command (zero infra) | Clone + Python | Docker Compose |
+| **Multimodal** | Native Gemini File Search (text + images, charts, diagrams, PDFs) with no extra vision pipeline | Strong OpenAI vision-based document RAG | Excellent for video, audio, images, and tables |
+| **Hosting** | Fully hosted (self-host option) | Local-first | Local-first |
+| **Operations** | Zero-ops cloud | Requires Python setup | Requires Docker |
+| **Upload tools** | Built-in single file, durable knowledge file, and batch upload tools | Yes | Yes |
+| **Citations / grounding** | Strong evidence trail with retrieval metadata | Yes | Yes |
+| **Best for** | Teams wanting zero-ops hosted multimodal RAG for MCP clients | Local document RAG experiments | Heavy local video/audio/data workflows |
+
+**Start here if you want the easiest hosted multimodal RAG MCP server.**
 
 ## What you get
 
-- **`calypso-rag-agent`**: sends each turn directly to the Calypso RAG agent and supports multi-turn context with `/new` reset
-- **`calypso-list-knowledge-buckets`**: lists all knowledge buckets available to the team tied to the configured API key
-- **`calypso-upload-agent-file`**: uploads a file through the agent-facing API, backed by one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`
-- **`calypso-upload-knowledge-file`**: uploads durable knowledge files into required bucket destinations for indexing and retrieval
-- **`calypso-upload-knowledge-files-batch`**: uploads 1 to 100 durable knowledge files with required shared or per-item bucket assignment
-- **Automatic RAG variant discovery**: at startup, the MCP uses your Calypso API key to load team-scoped model variants such as `calypso-rag-agent:pricing`
-- **Automatic bucket discovery**: discovered RAG variants include active bucket metadata so upload tools can auto-select single-bucket variants and require explicit selection for multi-bucket variants
-
-The server also exposes read-only MCP resources and reusable prompts so clients can discover safe workflows before calling tools.
+- Production multimodal RAG agent with multi-turn memory
+- Built-in upload tools for single files, batch uploads, and agent files
+- Automatic discovery of your team's RAG variants and knowledge buckets
+- Verifiable citations with source references and retrieval metadata
+- Read-only resources and reusable prompts for safe workflows
 
 ## Why Multimodal-First RAG
 
@@ -38,21 +78,13 @@ Most company knowledge is not only text. The answer often lives across a setup s
 
 In practice, this means your agent can answer questions like:
 
+- "Explain this setup screenshot and the attached policy PDF. What should the support rep do next?"
 - "What does this onboarding PDF say about approval rules?"
 - "Why is this setup screen failing?"
+- "Compare the pricing chart with our plan documentation and recommend the right tier."
 - "Summarize the policy that applies to this support ticket."
 - "Which product plan fits this customer based on our pricing docs?"
 - "Compare the diagrammed ingestion flow with the retrieval flow."
-
-## Catalog & Trust
-
-This repository is prepared for the [Archestra MCP Catalog](https://archestra.ai/mcp-catalog). The Trust Score badge is a catalog hygiene signal based on public metadata such as protocol coverage, documentation, GitHub activity, and code quality. It is not a security certification; review the code and configure API keys carefully before connecting any MCP server to sensitive data.
-
-To add this server to Archestra, fork [`archestra-ai/website`](https://github.com/archestra-ai/website), edit `app/app/mcp-catalog/data/mcp-servers.json`, and add:
-
-```json
-"https://github.com/calypso-so/calypso-mcp-server"
-```
 
 ## What this MCP does
 

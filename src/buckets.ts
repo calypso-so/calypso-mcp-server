@@ -19,7 +19,13 @@ export type KnowledgeBucketDescriptor = {
   description?: string | null;
   status?: string;
   knowledgeIds: string[];
+  fileKnowledgeIds: string[];
   memberCount?: number;
+  rawMemberCount?: number;
+  fileCount?: number;
+  retrievableFileCount?: number;
+  staleMemberCount?: number;
+  activeNonFileMemberCount?: number;
   counts: Record<string, number>;
   bucketStore?: KnowledgeBucketStoreState | null;
 };
@@ -196,8 +202,24 @@ function normalizeBucket(value: unknown): KnowledgeBucketDescriptor | null {
         ? raw.status.trim()
         : undefined,
     knowledgeIds: normalizeStringArray(raw.knowledgeIds),
+    fileKnowledgeIds: normalizeStringArray(raw.fileKnowledgeIds),
     memberCount:
       typeof raw.memberCount === "number" ? raw.memberCount : undefined,
+    rawMemberCount:
+      typeof raw.rawMemberCount === "number" ? raw.rawMemberCount : undefined,
+    fileCount: typeof raw.fileCount === "number" ? raw.fileCount : undefined,
+    retrievableFileCount:
+      typeof raw.retrievableFileCount === "number"
+        ? raw.retrievableFileCount
+        : undefined,
+    staleMemberCount:
+      typeof raw.staleMemberCount === "number"
+        ? raw.staleMemberCount
+        : undefined,
+    activeNonFileMemberCount:
+      typeof raw.activeNonFileMemberCount === "number"
+        ? raw.activeNonFileMemberCount
+        : undefined,
     counts: normalizeNumberRecord(raw.counts),
     bucketStore: normalizeBucketStore(raw.bucketStore),
   };
