@@ -4,6 +4,9 @@ export type KnowledgeBucketStoreState = {
   alias?: string | null;
   gemini_store_name?: string | null;
   status?: string;
+  file_count?: number;
+  indexed_file_count?: number;
+  pending_file_count?: number;
   member_count?: number;
   indexed_member_count?: number;
   pending_member_count?: number;
@@ -19,7 +22,9 @@ export type KnowledgeBucketDescriptor = {
   description?: string | null;
   status?: string;
   knowledgeIds: string[];
+  fileIds: string[];
   fileKnowledgeIds: string[];
+  filesCount?: number;
   memberCount?: number;
   rawMemberCount?: number;
   fileCount?: number;
@@ -155,6 +160,15 @@ function normalizeBucketStore(
       typeof raw.status === "string" && raw.status.trim()
         ? raw.status.trim()
         : undefined,
+    file_count: typeof raw.file_count === "number" ? raw.file_count : undefined,
+    indexed_file_count:
+      typeof raw.indexed_file_count === "number"
+        ? raw.indexed_file_count
+        : undefined,
+    pending_file_count:
+      typeof raw.pending_file_count === "number"
+        ? raw.pending_file_count
+        : undefined,
     member_count:
       typeof raw.member_count === "number" ? raw.member_count : undefined,
     indexed_member_count:
@@ -179,6 +193,8 @@ function normalizeBucket(value: unknown): KnowledgeBucketDescriptor | null {
   if (!id) {
     return null;
   }
+  const fileIds = normalizeStringArray(raw.fileIds);
+  const fileKnowledgeIds = normalizeStringArray(raw.fileKnowledgeIds);
   return {
     id,
     teamId:
@@ -202,7 +218,14 @@ function normalizeBucket(value: unknown): KnowledgeBucketDescriptor | null {
         ? raw.status.trim()
         : undefined,
     knowledgeIds: normalizeStringArray(raw.knowledgeIds),
-    fileKnowledgeIds: normalizeStringArray(raw.fileKnowledgeIds),
+    fileIds: fileIds.length > 0 ? fileIds : fileKnowledgeIds,
+    fileKnowledgeIds: fileKnowledgeIds.length > 0 ? fileKnowledgeIds : fileIds,
+    filesCount:
+      typeof raw.filesCount === "number"
+        ? raw.filesCount
+        : typeof raw.fileCount === "number"
+          ? raw.fileCount
+          : undefined,
     memberCount:
       typeof raw.memberCount === "number" ? raw.memberCount : undefined,
     rawMemberCount:

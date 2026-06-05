@@ -19,7 +19,9 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
         description: "",
         status: "active",
         knowledgeIds: ["file-1", "file-1", ""],
+        fileIds: ["file-1", "file-1", ""],
         fileKnowledgeIds: ["file-1", "file-1", ""],
+        filesCount: 1,
         memberCount: 1,
         rawMemberCount: 3,
         fileCount: 1,
@@ -33,6 +35,9 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
         },
         bucketStore: {
           status: "active",
+          file_count: 1,
+          indexed_file_count: 1,
+          pending_file_count: 0,
           member_count: 1,
           indexed_member_count: 1,
           pending_member_count: 0,
@@ -55,7 +60,9 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
   assert.equal(result.buckets[0].id, "bucket-1");
   assert.equal(result.buckets[0].description, null);
   assert.deepEqual(result.buckets[0].knowledgeIds, ["file-1"]);
+  assert.deepEqual(result.buckets[0].fileIds, ["file-1"]);
   assert.deepEqual(result.buckets[0].fileKnowledgeIds, ["file-1"]);
+  assert.equal(result.buckets[0].filesCount, 1);
   assert.equal(result.buckets[0].fileCount, 1);
   assert.equal(result.buckets[0].rawMemberCount, 3);
   assert.equal(result.buckets[0].staleMemberCount, 2);
@@ -65,6 +72,26 @@ test("normalizeKnowledgeBucketList normalizes and deduplicates buckets", () => {
     retrievable_files: 1,
   });
   assert.equal(result.buckets[0].bucketStore.status, "active");
+  assert.equal(result.buckets[0].bucketStore.file_count, 1);
+  assert.equal(result.buckets[0].bucketStore.indexed_file_count, 1);
+  assert.equal(result.buckets[0].bucketStore.pending_file_count, 0);
+});
+
+test("normalizeKnowledgeBucketList falls back to legacy fileKnowledgeIds", () => {
+  const result = normalizeKnowledgeBucketList({
+    team_id: "team-1",
+    buckets: [
+      {
+        id: "bucket-1",
+        fileKnowledgeIds: ["file-1"],
+        fileCount: 1,
+      },
+    ],
+  });
+
+  assert.deepEqual(result.buckets[0].fileIds, ["file-1"]);
+  assert.deepEqual(result.buckets[0].fileKnowledgeIds, ["file-1"]);
+  assert.equal(result.buckets[0].filesCount, 1);
 });
 
 test("listKnowledgeBuckets calls public bucket endpoint with include_archived", async () => {
