@@ -11,6 +11,8 @@ import {
   uploadAgentFile,
   uploadKnowledgeFile,
   uploadKnowledgeFilesBatch,
+  waitForKnowledgeBatchReady,
+  waitForKnowledgeFileIndexed,
 } from "../dist/files.js";
 
 async function readRequestBody(body) {
@@ -72,6 +74,18 @@ test("resolveUploadContent reads local file paths", async () => {
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+});
+
+test("resolveUploadContent explains hosted attachment filePath failures", async () => {
+  await assert.rejects(
+    () =>
+      resolveUploadContent({
+        filename: "The-History-of-AI_Avicena.pdf",
+        mimeType: "application/pdf",
+        filePath: "/mnt/user-data/uploads/The-History-of-AI_Avicena.pdf",
+      }),
+    /hosted-agent attachment path.*contentBase64/s,
+  );
 });
 
 test("resolveUploadContent requires exactly one content source", async () => {
@@ -516,5 +530,101 @@ test("uploadKnowledgeFilesBatch polls batch status with include_items=true", asy
     assert.equal(calls[1].init.method, "GET");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("waitForKnowledgeFileIndexed explains queued public upload timeout", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback) => {
+    callback();
+    return 0;
+  };
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("/knowledge/files/file-queued")) {
+      return new Response(
+        JSON.stringify({
+          id: "file-queued",
+          object: "knowledge_file",
+          status: "queued",
+          task: { id: "task-queued", status: "queued" },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        id: "task-queued",
+        object: "knowledge_indexing_task",
+        status: "queued",
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    await assert.rejects(
+      () =>
+        waitForKnowledgeFileIndexed(
+          {
+            apiBaseUrl: "https://api.example.test/v1",
+            apiKey: "sk-test",
+          },
+          "file-queued",
+          "task-queued",
+        ),
+      /AIcore knowledge index worker is running.*file_id=file-queued.*task_id=task-queued/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("waitForKnowledgeBatchReady returns actionable timeout message", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback) => {
+    callback();
+    return 0;
+  };
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: "batch-queued",
+        status: "accepted",
+        queued: 2,
+        indexing: 1,
+        active: 0,
+        failed: 0,
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+  try {
+    const result = await waitForKnowledgeBatchReady(
+      {
+        apiBaseUrl: "https://api.example.test/v1",
+        apiKey: "sk-test",
+      },
+      "batch-queued",
+    );
+
+    assert.equal(result.status, "accepted");
+    assert.match(result.message, /Batch batch-queued was accepted/);
+    assert.match(result.message, /queued=2 indexing=1 active=0 failed=0/);
+    assert.match(result.message, /AIcore knowledge index worker is running/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.setTimeout = originalSetTimeout;
   }
 });

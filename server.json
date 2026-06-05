@@ -7,12 +7,12 @@
     "url": "https://github.com/calypso-so/calypso-mcp-server",
     "source": "github"
   },
-  "version": "1.0.36",
+  "version": "1.0.37",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@calypsohq/multimodal-rag-mcp-server",
-      "version": "1.0.36",
+      "version": "1.0.37",
       "transport": {
         "type": "stdio"
       },

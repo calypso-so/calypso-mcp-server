@@ -233,6 +233,13 @@ Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible dep
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
 - **Smithery launch mismatch**: use the packaged `npx -y @calypsohq/multimodal-rag-mcp-server` path instead of running `node dist/index.js` from a fresh clone
+- **ENOENT for `/mnt/user-data/uploads/...`**: that path belongs to a hosted agent or attachment sandbox, not necessarily to the MCP server. Retry with `contentBase64` instead of `filePath`.
+
+## Choosing `contentBase64` vs `filePath`
+
+For Claude, Smithery, browser uploads, and hosted-agent environments, use `contentBase64`. The MCP server receives the bytes directly and does not need filesystem access.
+
+Use `filePath` only for local desktop workflows where the Calypso MCP server process runs on the same machine and can read the exact path. If the path starts with `/mnt/user-data/uploads`, `/mnt/data`, or another hosted sandbox prefix, do not send it as `filePath`; convert the attachment to `contentBase64`.
 
 ## Available tools
 
@@ -278,7 +285,8 @@ Notes:
 - If the selected model has one active bucket, the MCP auto-selects that bucket.
 - If the selected model has multiple active buckets, pass `bucketId`.
 - If the selected model has no active buckets, bind that agent variant to a knowledge bucket before uploading.
-- Supports either `contentBase64` for remote execution or `filePath` for local desktop usage.
+- Use `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use `filePath` only when the Calypso MCP server process can read that exact local path.
+- Do not pass hosted attachment paths such as `/mnt/user-data/uploads/...` as `filePath`; convert the attachment to `contentBase64` instead.
 - Can optionally wait until the file is RAG-ready before returning.
 
 Example:
@@ -287,7 +295,7 @@ Example:
 {
   "filename": "contract.pdf",
   "mimeType": "application/pdf",
-  "filePath": "/Users/me/Desktop/contract.pdf",
+  "contentBase64": "<base64 file bytes>",
   "targetModel": "calypso-rag-agent:legal",
   "bucketId": "bucket_abc123",
   "waitForReady": true
@@ -303,6 +311,8 @@ Notes:
 - Uses `POST /v1/knowledge/files`.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
 - Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
+- Use `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use `filePath` only when the Calypso MCP server process can read that exact local path.
+- If an agent sees a path like `/mnt/user-data/uploads/file.pdf`, it should not send that as `filePath`; it should send the file bytes as `contentBase64`.
 - Supports optional `title`, `tags`, `metadata`, and `idempotencyKey`.
 - Route uploads into existing buckets with `bucketIds` or `bucketSlugs`, or use `bucket` as a single-slug shortcut.
 - Pass `createMissingBuckets: true` with bucket slugs when you want Calypso to create missing destinations during upload.
@@ -314,7 +324,7 @@ Example:
 {
   "filename": "handbook.pdf",
   "mimeType": "application/pdf",
-  "filePath": "/Users/me/Desktop/handbook.pdf",
+  "contentBase64": "<base64 file bytes>",
   "bucket": "support-handbook",
   "createMissingBuckets": true,
   "waitForIndexing": true
@@ -329,6 +339,7 @@ Notes:
 - Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
 - Requires a shared bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`, unless every item provides its own bucket destination.
 - Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
+- Use per-item `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use per-item `filePath` only when the Calypso MCP server process can read that exact local path.
 - Generates Firestore-safe `client_file_id` values when `clientFileId` is omitted.
 - Supports `dryRun: true` to validate manifest and bucket behavior without storing files.
 - `accepted` or `queued` means the upload is durable, not necessarily query-ready. Use `waitForBatchReady: true` to poll `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
@@ -345,7 +356,7 @@ Example:
     {
       "filename": "faq.txt",
       "mimeType": "text/plain",
-      "filePath": "/Users/me/Desktop/faq.txt"
+      "contentBase64": "<base64 file bytes>"
     }
   ],
   "waitForBatchReady": true
@@ -399,7 +410,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ### Agent-store file flow
 
 - **Upload a file for the RAG agent**:
-  - Call `calypso-upload-agent-file` with `filename`, `mimeType`, and either `contentBase64` or `filePath`
+  - Call `calypso-upload-agent-file` with `filename`, `mimeType`, and `contentBase64` for hosted/remote uploads; use `filePath` only for files local to the MCP server
 - **Ask over the uploaded file**:
   - Call `calypso-rag-agent` with your `prompt` and the returned `fileIds`
 - **RAG semantics**:
@@ -411,6 +422,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
   - Call `calypso-list-knowledge-buckets` or read `calypso://knowledge-buckets` before choosing a destination
 - **Upload durable knowledge**:
   - Call `calypso-upload-knowledge-file` with the file payload and optional `title`, `tags`, or `metadata`
+  - Prefer `contentBase64` when the source is a Claude/browser/hosted-agent attachment; `filePath` must be readable by the MCP server process itself
 - **Route knowledge into buckets**:
   - Use `bucket: "support-handbook"` for one destination, `bucketSlugs` for multiple slug-based destinations, or `bucketIds` when you already have stable bucket ids
 - **Create bucket destinations on demand**:
@@ -421,7 +433,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ### Knowledge-store batch flow
 
 - **Upload many durable files**:
-  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and either `contentBase64` or `filePath` per item
+  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and `contentBase64` per item for hosted/remote uploads; use `filePath` only for files local to the MCP server
 - **Route the batch into buckets**:
   - Put shared `bucket`, `bucketSlugs`, `bucketIds`, or `createMissingBuckets` on the tool call, then override per item only when needed
 - **Validate first**:

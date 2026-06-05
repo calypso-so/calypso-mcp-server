@@ -166,6 +166,12 @@ const KNOWLEDGE_BATCH_MAX_FILES = 100;
 const POLL_INITIAL_DELAY_MS = 1000;
 const POLL_MAX_DELAY_MS = 4000;
 const POLL_BACKOFF_MULTIPLIER = 1.5;
+const REMOTE_ATTACHMENT_PATH_PREFIXES = [
+  "/mnt/user-data/",
+  "/mnt/data/",
+  "/mnt/attachments/",
+  "/tmp/claude-uploads/",
+];
 
 type UploadContentSource = {
   filename?: string;
@@ -188,6 +194,39 @@ function buildApiUrl(
     ? relativePath.slice(1)
     : relativePath;
   return new URL(normalizedPath, `${config.apiBaseUrl}/`).toString();
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+function looksLikeRemoteAttachmentPath(filePath: string): boolean {
+  return REMOTE_ATTACHMENT_PATH_PREFIXES.some((prefix) =>
+    filePath.startsWith(prefix),
+  );
+}
+
+function createFilePathReadError(filePath: string, error: unknown): Error {
+  const baseMessage =
+    error instanceof Error ? error.message : "The file could not be read.";
+  const sharedGuidance =
+    "`filePath` must be readable by the machine running the Calypso MCP server. If this file came from Claude, ChatGPT, Smithery, a browser upload, or another hosted agent sandbox, pass the file bytes as `contentBase64` instead.";
+
+  if (looksLikeRemoteAttachmentPath(filePath)) {
+    return new Error(
+      `The file path \`${filePath}\` looks like a hosted-agent attachment path, but the Calypso MCP server cannot read that sandbox path. Use \`contentBase64\` for hosted or remote uploads, or run the MCP server in the same environment where the path exists.`,
+    );
+  }
+
+  if (isNodeError(error) && error.code === "ENOENT") {
+    return new Error(
+      `The file path \`${filePath}\` does not exist from the Calypso MCP server's point of view. ${sharedGuidance}`,
+    );
+  }
+
+  return new Error(
+    `The Calypso MCP server could not read \`${filePath}\`: ${baseMessage}. ${sharedGuidance}`,
+  );
 }
 
 function requireApiKey(config: CalypsoRuntimeConfig): string {
@@ -329,7 +368,13 @@ export async function resolveUploadContent(
   const mimeType = (input.mimeType || "").trim() || DEFAULT_MIME_TYPE;
 
   if (hasFilePath) {
-    const bytes = await readFile(String(input.filePath));
+    const uploadFilePath = String(input.filePath);
+    let bytes: Buffer;
+    try {
+      bytes = await readFile(uploadFilePath);
+    } catch (error) {
+      throw createFilePathReadError(uploadFilePath, error);
+    }
     return {
       bytes,
       filename,
@@ -547,6 +592,30 @@ function getKnowledgeError(result: KnowledgeUploadResult): string | null {
   return null;
 }
 
+function describeKnowledgeQueuedTimeout(
+  result?: KnowledgeUploadResult,
+): string {
+  const fileId = result?.file?.id ? ` file_id=${result.file.id}` : "";
+  const taskId = result?.task?.id ? ` task_id=${result.task.id}` : "";
+  const status = extractKnowledgeStatus(
+    result || ({ file: {} } as KnowledgeUploadResult),
+  );
+  const statusText = status ? ` Last status: ${status}.` : "";
+  return `Upload accepted but indexing did not start or finish before timeout.${statusText} Ensure the AIcore knowledge index worker is running for public /v1 uploads.${fileId}${taskId}`;
+}
+
+function describeBatchQueuedTimeout(
+  batchId: string,
+  batch?: KnowledgeBatchObject,
+): string {
+  const status = String(batch?.status || "timeout");
+  const queued = Number(batch?.queued || 0);
+  const indexing = Number(batch?.indexing || 0);
+  const active = Number(batch?.active || 0);
+  const failed = Number(batch?.failed || 0);
+  return `Batch ${batchId} was accepted but did not finish before timeout. Last status: ${status}. queued=${queued} indexing=${indexing} active=${active} failed=${failed}. Ensure the AIcore knowledge index worker is running for public /v1 uploads.`;
+}
+
 export async function getOpenAiFile(
   config: CalypsoRuntimeConfig,
   fileId: string,
@@ -662,16 +731,17 @@ export async function waitForKnowledgeFileIndexed(
   taskId?: string | null,
 ): Promise<KnowledgeUploadResult> {
   let delayMs = POLL_INITIAL_DELAY_MS;
+  let last: KnowledgeUploadResult | undefined;
 
   for (let attempt = 0; attempt < KNOWLEDGE_POLL_MAX_ATTEMPTS; attempt += 1) {
-    const result = await resolveKnowledgeResult(config, fileId, taskId);
-    const readinessError = getKnowledgeError(result);
+    last = await resolveKnowledgeResult(config, fileId, taskId);
+    const readinessError = getKnowledgeError(last);
     if (readinessError) {
       throw new Error(readinessError);
     }
 
-    if (isKnowledgeReady(result)) {
-      return result;
+    if (isKnowledgeReady(last)) {
+      return last;
     }
 
     if (attempt < KNOWLEDGE_POLL_MAX_ATTEMPTS - 1) {
@@ -683,9 +753,7 @@ export async function waitForKnowledgeFileIndexed(
     }
   }
 
-  throw new Error(
-    "Timed out while waiting for the knowledge file to finish indexing.",
-  );
+  throw new Error(describeKnowledgeQueuedTimeout(last));
 }
 
 export async function uploadKnowledgeFile(
@@ -850,8 +918,6 @@ export async function waitForKnowledgeBatchReady(
   return {
     ...(last || { id: batchId }),
     status: last?.status || "timeout",
-    message:
-      last?.message ||
-      "Batch was accepted but did not reach a terminal status before timeout.",
+    message: describeBatchQueuedTimeout(batchId, last),
   };
 }

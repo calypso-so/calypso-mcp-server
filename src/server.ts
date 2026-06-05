@@ -503,8 +503,9 @@ export function createCalypsoMcpServer(options: {
           "Rotate keys exposed in logs, screenshots, shell history, or support tickets.",
         ],
         localFileAccess: [
-          "Use contentBase64 for remote execution.",
-          "Use filePath only when the local MCP process should read and upload that exact file.",
+          "Use contentBase64 for Claude, Smithery, browser, and hosted-agent uploads.",
+          "Use filePath only when the Calypso MCP server process can read that exact path on its own filesystem.",
+          "Do not pass hosted attachment paths such as /mnt/user-data/uploads as filePath unless this MCP server runs in that same environment.",
           "Clients should request user confirmation before tool calls that include filePath.",
         ],
         logging: [
@@ -740,6 +741,7 @@ export function createCalypsoMcpServer(options: {
       "Use this when you want a compatible `file_id` that can be attached to `calypso-rag-agent`.",
       "The MCP sends `purpose=user_data`, targets the selected RAG agent with `target_model`,",
       "passes exactly one `bucket_id`, and can optionally wait until the file is RAG-ready before returning.",
+      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64`; use `filePath` only when this MCP process can read that exact local path.",
       `Bucket bindings by model: ${modelCatalog.models.map(describeModelBuckets).join("; ")}.`,
     ].join("\n"),
     {
@@ -749,13 +751,13 @@ export function createCalypsoMcpServer(options: {
         .string()
         .optional()
         .describe(
-          "Base64-encoded file content. Use this for Smithery or remote execution.",
+          "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
         ),
       filePath: z
         .string()
         .optional()
         .describe(
-          "Local file path to read from disk when the MCP process can access the file.",
+          "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
         ),
       targetModel: z
         .string()
@@ -860,6 +862,7 @@ export function createCalypsoMcpServer(options: {
       "Use this when you want a file indexed into the broader knowledge corpus instead of",
       "attached directly to a single RAG chat turn. This tool returns knowledge-file and task metadata.",
       "A bucket destination is required: pass bucketIds, bucketSlugs, or bucket.",
+      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64`; use `filePath` only when this MCP process can read that exact local path.",
     ].join("\n"),
     {
       filename: z
@@ -872,13 +875,13 @@ export function createCalypsoMcpServer(options: {
         .string()
         .optional()
         .describe(
-          "Base64-encoded file content. Use this for Smithery or remote execution.",
+          "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
         ),
       filePath: z
         .string()
         .optional()
         .describe(
-          "Local file path to read from disk when the MCP process can access the file.",
+          "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
         ),
       title: z
         .string()
@@ -1024,6 +1027,7 @@ export function createCalypsoMcpServer(options: {
       "provides its own bucket fields. The tool returns batch-level status and, when requested,",
       "polls until the batch reaches active, partially_active, partially_failed, failed, or timeout.",
       "A shared bucket destination is required unless every item provides its own bucket destination.",
+      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64` per item; use `filePath` only for files local to this MCP process.",
     ].join("\n"),
     {
       items: z
@@ -1039,13 +1043,13 @@ export function createCalypsoMcpServer(options: {
               .string()
               .optional()
               .describe(
-                "Base64-encoded file content. Use this for Smithery or remote execution.",
+                "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
               ),
             filePath: z
               .string()
               .optional()
               .describe(
-                "Local file path to read from disk when the MCP process can access the file.",
+                "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
               ),
             clientFileId: z
               .string()

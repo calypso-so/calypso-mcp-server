@@ -31,8 +31,9 @@ The server does not intentionally log API keys. Error messages should be reviewe
 
 The upload tools accept either `contentBase64` or `filePath`.
 
-- `contentBase64` is safest for remote or hosted MCP execution because the client provides the bytes directly.
-- `filePath` is intended for local desktop use when the MCP process is allowed to read the selected path.
+- `contentBase64` is the safest default for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the file bytes directly.
+- `filePath` is intended for local desktop use only when the Calypso MCP process is allowed to read the selected path on its own filesystem.
+- Hosted attachment paths such as `/mnt/user-data/uploads/...` are usually visible to the requester agent but not to the Calypso MCP process. Send those files as `contentBase64` instead.
 
 Only provide `filePath` values for files you intend to upload to Calypso. MCP clients should ask for user confirmation before calling upload tools with local paths.
 

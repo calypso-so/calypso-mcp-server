@@ -78,11 +78,11 @@
           },
           "contentBase64": {
             "type": "string",
-            "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+            "description": "Base64-encoded file content. Recommended for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the bytes directly."
           },
           "filePath": {
             "type": "string",
-            "description": "Local file path when the MCP process can read from disk."
+            "description": "Advanced local-only path. Use only when the Calypso MCP server runs on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead."
           },
           "targetModel": {
             "type": "string",
@@ -123,11 +123,11 @@
           },
           "contentBase64": {
             "type": "string",
-            "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+            "description": "Base64-encoded file content. Recommended for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the bytes directly."
           },
           "filePath": {
             "type": "string",
-            "description": "Local file path when the MCP process can read from disk."
+            "description": "Advanced local-only path. Use only when the Calypso MCP server runs on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead."
           },
           "title": {
             "type": "string",
@@ -214,11 +214,11 @@
                 },
                 "contentBase64": {
                   "type": "string",
-                  "description": "Base64-encoded file content. Prefer this for Smithery and remote execution."
+                  "description": "Base64-encoded file content. Recommended for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the bytes directly."
                 },
                 "filePath": {
                   "type": "string",
-                  "description": "Local file path when the MCP process can read from disk."
+                  "description": "Advanced local-only path. Use only when the Calypso MCP server runs on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead."
                 },
                 "clientFileId": {
                   "type": "string",
