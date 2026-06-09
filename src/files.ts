@@ -1,47 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
-import { FormDataEncoder } from "form-data-encoder";
-import { File, FormData } from "formdata-node";
 
 import type { CalypsoRuntimeConfig } from "./config.js";
-
-export type OpenAiFileRagReadinessState =
-  | "uploaded"
-  | "preparing"
-  | "indexing"
-  | "active"
-  | "error";
-
-export type OpenAiFileRagReadiness = {
-  state: OpenAiFileRagReadinessState;
-  label: string;
-  detail?: string | null;
-  is_ready: boolean;
-  updated_at?: number | null;
-};
-
-export type OpenAiFileMetadata = {
-  knowledge_id?: string | null;
-  knowledge_task_id?: string | null;
-  bucket_id?: string | null;
-  attachment_targets?: Array<Record<string, unknown>>;
-  attachment_target_count?: number;
-  rag_readiness?: OpenAiFileRagReadiness | null;
-};
-
-export type OpenAiFileObject = {
-  id: string;
-  object: "file";
-  bytes: number;
-  created_at: number;
-  filename: string;
-  purpose: "user_data";
-  status: "uploaded" | "processed" | "error" | "deleted";
-  mime_type?: string | null;
-  metadata?: OpenAiFileMetadata;
-};
 
 export type KnowledgeTaskObject = {
   id: string;
@@ -99,16 +60,6 @@ export type KnowledgeBatchObject = {
   [key: string]: unknown;
 };
 
-export type UploadAgentFileParams = {
-  filename: string;
-  mimeType: string;
-  contentBase64?: string;
-  filePath?: string;
-  targetModel: string;
-  bucketId: string;
-  waitForReady?: boolean;
-};
-
 export type UploadKnowledgeFileParams = {
   filename: string;
   mimeType: string;
@@ -147,7 +98,6 @@ export type UploadKnowledgeFilesBatchParams = {
   bucketSlugs?: string[];
   bucket?: string;
   createMissingBuckets?: boolean;
-  dryRun?: boolean;
   waitForBatchReady?: boolean;
 };
 
@@ -156,11 +106,49 @@ export type KnowledgeUploadResult = {
   task?: KnowledgeTaskObject | null;
 };
 
+type SingleUploadSessionCreateResponse = {
+  session_id: string;
+  upload_strategy?: string;
+  upload_url: string;
+  expires_at?: string;
+  request_id?: string;
+};
+
+type BatchUploadSessionCreateResponse = {
+  batch_id: string;
+  upload_strategy?: string;
+  accepted?: Array<{
+    client_file_id: string;
+    session_id: string;
+    upload_url: string;
+    expires_at?: string;
+    [key: string]: unknown;
+  }>;
+  rejected?: Array<Record<string, unknown>>;
+  request_id?: string;
+  [key: string]: unknown;
+};
+
+type BatchUploadSessionFinalizeResponse = {
+  batch_id: string;
+  status?: string;
+  finalized?: Array<{
+    client_file_id?: string;
+    session_id?: string;
+    knowledge_id?: string;
+    task_id?: string;
+    [key: string]: unknown;
+  }>;
+  pending?: Array<Record<string, unknown>>;
+  failed?: Array<Record<string, unknown>>;
+  replayed?: Array<Record<string, unknown>>;
+  request_id?: string;
+  [key: string]: unknown;
+};
+
 const DEFAULT_MIME_TYPE = "application/octet-stream";
-const OPENAI_READY_STATE = "active";
 const KNOWLEDGE_READY_STATE = "indexed";
 const KNOWLEDGE_ERROR_STATES = new Set(["failed", "deleted"]);
-const OPENAI_POLL_MAX_ATTEMPTS = 40;
 const KNOWLEDGE_POLL_MAX_ATTEMPTS = 40;
 const KNOWLEDGE_BATCH_MAX_FILES = 100;
 const POLL_INITIAL_DELAY_MS = 1000;
@@ -315,26 +303,6 @@ async function requestJson<T>(
   return body as T;
 }
 
-async function requestMultipartJson<T>(
-  config: CalypsoRuntimeConfig,
-  relativePath: string,
-  form: FormData,
-  init: Omit<RequestInit, "body"> & { headers?: HeadersInit } = {},
-): Promise<T> {
-  const encoder = new FormDataEncoder(form);
-  const headers = new Headers(init.headers);
-  for (const [key, value] of Object.entries(encoder.headers)) {
-    headers.set(key, value);
-  }
-
-  return requestJson<T>(config, relativePath, {
-    ...init,
-    headers,
-    body: Readable.from(encoder) as unknown as BodyInit,
-    duplex: "half",
-  } as RequestInit & { headers?: HeadersInit });
-}
-
 export function stripDataUriPrefix(value: string): string {
   const marker = ";base64,";
   const markerIndex = value.indexOf(marker);
@@ -395,12 +363,6 @@ export async function resolveUploadContent(
     filename,
     mimeType,
   };
-}
-
-function createMultipartFile(content: ResolvedUploadContent): File {
-  return new File([content.bytes], content.filename, {
-    type: content.mimeType || DEFAULT_MIME_TYPE,
-  });
 }
 
 function sanitizeClientFileId(value: string): string {
@@ -546,29 +508,6 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isOpenAiFileReady(file: OpenAiFileObject): boolean {
-  return (
-    file.metadata?.rag_readiness?.state === OPENAI_READY_STATE ||
-    file.metadata?.rag_readiness?.is_ready === true
-  );
-}
-
-function getOpenAiFileError(file: OpenAiFileObject): string | null {
-  if (file.metadata?.rag_readiness?.state === "error") {
-    return String(
-      file.metadata.rag_readiness.detail ||
-        file.metadata.rag_readiness.label ||
-        "File processing failed.",
-    );
-  }
-
-  if (file.status === "error") {
-    return "The uploaded file entered an error state.";
-  }
-
-  return null;
-}
-
 function extractKnowledgeStatus(result: KnowledgeUploadResult): string {
   return String(result.file.status || result.task?.status || "")
     .trim()
@@ -614,77 +553,6 @@ function describeBatchQueuedTimeout(
   const active = Number(batch?.active || 0);
   const failed = Number(batch?.failed || 0);
   return `Batch ${batchId} was accepted but did not finish before timeout. Last status: ${status}. queued=${queued} indexing=${indexing} active=${active} failed=${failed}. Ensure the AIcore knowledge index worker is running for public /v1 uploads.`;
-}
-
-export async function getOpenAiFile(
-  config: CalypsoRuntimeConfig,
-  fileId: string,
-): Promise<OpenAiFileObject> {
-  return requestJson<OpenAiFileObject>(
-    config,
-    `/files/${encodeURIComponent(fileId)}`,
-    {
-      method: "GET",
-    },
-  );
-}
-
-export async function waitForOpenAiFileReady(
-  config: CalypsoRuntimeConfig,
-  fileId: string,
-): Promise<OpenAiFileObject> {
-  let delayMs = POLL_INITIAL_DELAY_MS;
-
-  for (let attempt = 0; attempt < OPENAI_POLL_MAX_ATTEMPTS; attempt += 1) {
-    const file = await getOpenAiFile(config, fileId);
-    const readinessError = getOpenAiFileError(file);
-    if (readinessError) {
-      throw new Error(readinessError);
-    }
-
-    if (isOpenAiFileReady(file)) {
-      return file;
-    }
-
-    if (attempt < OPENAI_POLL_MAX_ATTEMPTS - 1) {
-      await sleep(delayMs);
-      delayMs = Math.min(
-        POLL_MAX_DELAY_MS,
-        Math.round(delayMs * POLL_BACKOFF_MULTIPLIER),
-      );
-    }
-  }
-
-  throw new Error(
-    "Timed out while waiting for the uploaded file to become RAG-ready.",
-  );
-}
-
-export async function uploadAgentFile(
-  config: CalypsoRuntimeConfig,
-  params: UploadAgentFileParams,
-): Promise<OpenAiFileObject> {
-  const content = await resolveUploadContent(params);
-  const form = new FormData();
-  form.set("purpose", "user_data");
-  form.set("target_model", params.targetModel);
-  form.set("bucket_id", params.bucketId);
-  form.set("file", createMultipartFile(content), content.filename);
-
-  const uploaded = await requestMultipartJson<OpenAiFileObject>(
-    config,
-    "/files",
-    form,
-    {
-      method: "POST",
-    },
-  );
-
-  if (params.waitForReady === false) {
-    return uploaded;
-  }
-
-  return waitForOpenAiFileReady(config, uploaded.id);
 }
 
 export async function getKnowledgeFile(
@@ -756,6 +624,25 @@ export async function waitForKnowledgeFileIndexed(
   throw new Error(describeKnowledgeQueuedTimeout(last));
 }
 
+async function uploadBytesToSessionTarget(
+  uploadUrl: string,
+  content: ResolvedUploadContent,
+): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": content.mimeType || DEFAULT_MIME_TYPE,
+      "Content-Range": `bytes 0-${content.bytes.byteLength - 1}/${content.bytes.byteLength}`,
+    },
+    body: content.bytes as BodyInit,
+  });
+
+  if (!response.ok) {
+    const body = await parseResponseBody(response);
+    throw new Error(formatApiError(response.status, body));
+  }
+}
+
 export async function uploadKnowledgeFile(
   config: CalypsoRuntimeConfig,
   params: UploadKnowledgeFileParams,
@@ -766,54 +653,44 @@ export async function uploadKnowledgeFile(
     );
   }
   const content = await resolveUploadContent(params);
-  const form = new FormData();
-  form.set("file", createMultipartFile(content), content.filename);
-
-  if (params.title?.trim()) {
-    form.set("title", params.title.trim());
-  }
-
-  for (const tag of params.tags || []) {
-    const trimmedTag = String(tag || "").trim();
-    if (trimmedTag) {
-      form.append("tags", trimmedTag);
-    }
-  }
-
-  if (params.metadata && Object.keys(params.metadata).length > 0) {
-    form.set("metadata", JSON.stringify(params.metadata));
-  }
-
-  for (const bucketId of params.bucketIds || []) {
-    const value = String(bucketId || "").trim();
-    if (value) form.append("bucket_ids", value);
-  }
-
-  for (const bucketSlug of params.bucketSlugs || []) {
-    const value = String(bucketSlug || "").trim();
-    if (value) form.append("bucket_slugs", value);
-  }
-
-  if (params.bucket?.trim()) {
-    form.set("bucket", params.bucket.trim());
-  }
-
-  if (params.createMissingBuckets === true) {
-    form.set("create_missing_buckets", "true");
-  }
-
   const headers = new Headers();
+  headers.set("Content-Type", "application/json");
   if (params.idempotencyKey?.trim()) {
     headers.set("Idempotency-Key", params.idempotencyKey.trim());
   }
 
-  const file = await requestMultipartJson<KnowledgeFileObject>(
+  const createBody: Record<string, unknown> = {
+    filename: content.filename,
+    content_type: content.mimeType || DEFAULT_MIME_TYPE,
+    size_bytes: content.bytes.byteLength,
+  };
+  if (params.title?.trim()) createBody.title = params.title.trim();
+  const tags = compactStringArray(params.tags);
+  if (tags) createBody.tags = tags;
+  if (params.metadata && Object.keys(params.metadata).length > 0) {
+    createBody.metadata = params.metadata;
+  }
+  applyBucketFields(createBody, params);
+
+  const session = await requestJson<SingleUploadSessionCreateResponse>(
     config,
-    "/knowledge/files",
-    form,
+    "/knowledge/files/upload-session",
     {
       method: "POST",
       headers,
+      body: JSON.stringify(createBody),
+    },
+  );
+
+  await uploadBytesToSessionTarget(session.upload_url, content);
+
+  const file = await requestJson<KnowledgeFileObject>(
+    config,
+    `/knowledge/files/upload-session/${encodeURIComponent(session.session_id)}/finalize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
     },
   );
 
@@ -834,35 +711,84 @@ export async function uploadKnowledgeFilesBatch(
   params: UploadKnowledgeFilesBatchParams,
 ): Promise<KnowledgeBatchObject> {
   const { manifest, clientFileIds } = buildKnowledgeBatchManifest(params);
-  const form = new FormData();
-  form.set("manifest", JSON.stringify(manifest));
+  const contents: ResolvedUploadContent[] = [];
 
   for (const [index, item] of params.items.entries()) {
     const content = await resolveUploadContent(item);
-    form.set(
-      clientFileIds[index],
-      createMultipartFile(content),
-      item.filename || content.filename,
-    );
+    contents[index] = content;
   }
 
-  const relativePath = params.dryRun
-    ? "/knowledge/files:batch?dry_run=true"
-    : "/knowledge/files:batch";
-  const batch = await requestMultipartJson<KnowledgeBatchObject>(
+  const files = contents.map((content, index) => ({
+    client_file_id: clientFileIds[index],
+    filename: content.filename,
+    content_type: content.mimeType || DEFAULT_MIME_TYPE,
+    size_bytes: content.bytes.byteLength,
+  }));
+
+  const sessionBatch = await requestJson<BatchUploadSessionCreateResponse>(
     config,
-    relativePath,
-    form,
+    "/knowledge/files:batch/upload-session",
     {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manifest, files }),
+    },
+  );
+
+  const sessionsByClientFileId = new Map(
+    (sessionBatch.accepted || []).map((item) => [item.client_file_id, item]),
+  );
+  for (const [index, clientFileId] of clientFileIds.entries()) {
+    const session = sessionsByClientFileId.get(clientFileId);
+    if (!session) continue;
+    await uploadBytesToSessionTarget(session.upload_url, contents[index]);
+  }
+
+  const finalized = await requestJson<BatchUploadSessionFinalizeResponse>(
+    config,
+    `/knowledge/files:batch/upload-session/${encodeURIComponent(sessionBatch.batch_id)}/finalize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "finalize_uploaded" }),
     },
   );
 
   if (params.waitForBatchReady !== true) {
-    return batch;
+    return {
+      id: finalized.batch_id,
+      status: finalized.status,
+      accepted:
+        (finalized.finalized?.length || 0) + (finalized.replayed?.length || 0),
+      rejected: finalized.failed?.length || 0,
+      items: [
+        ...(finalized.finalized || []).map((item) => ({
+          client_file_id: item.client_file_id,
+          status: "queued",
+          knowledgeId: item.knowledge_id,
+          taskId: item.task_id,
+        })),
+        ...(finalized.replayed || []).map((item) => ({
+          client_file_id: item.client_file_id,
+          status: "replayed",
+          knowledgeId: item.knowledge_id,
+          taskId: item.task_id,
+        })),
+        ...(finalized.pending || []).map((item) => ({
+          ...item,
+          status: "pending",
+        })),
+        ...(finalized.failed || []).map((item) => ({
+          ...item,
+          status: "failed",
+        })),
+      ],
+      request_id: finalized.request_id,
+      upload_session_finalize: finalized,
+    };
   }
 
-  return waitForKnowledgeBatchReady(config, batch.id);
+  return waitForKnowledgeBatchReady(config, finalized.batch_id);
 }
 
 export async function getKnowledgeBatch(

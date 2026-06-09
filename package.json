@@ -1,6 +1,6 @@
 {
   "name": "@calypsohq/multimodal-rag-mcp-server",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "mcpName": "io.github.calypso-so/multimodal-rag-mcp-server",
   "description": "MCP server for Calypso (AIcore) agents via OpenAI-compatible API.",
   "main": "dist/index.js",
@@ -53,8 +53,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "dotenv": "^16.3.1",
-    "form-data-encoder": "^4.1.0",
-    "formdata-node": "^6.0.3",
     "openai": "^4.20.1",
     "zod": "^3.22.4"
   },

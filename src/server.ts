@@ -11,36 +11,17 @@ import { listKnowledgeBuckets } from "./buckets.js";
 import {
   CALYPSO_LIST_KNOWLEDGE_BUCKETS,
   CALYPSO_RAG_AGENT,
-  CALYPSO_UPLOAD_AGENT_FILE,
   CALYPSO_UPLOAD_KNOWLEDGE_FILE,
   CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
   type CalypsoRuntimeConfig,
 } from "./config.js";
-import {
-  uploadAgentFile,
-  uploadKnowledgeFile,
-  uploadKnowledgeFilesBatch,
-} from "./files.js";
-import {
-  type CalypsoRagModelCatalog,
-  type CalypsoRagModelDescriptor,
-  modelIdsFromCatalog,
-} from "./models.js";
+import { uploadKnowledgeFile, uploadKnowledgeFilesBatch } from "./files.js";
+import { type CalypsoRagModelCatalog, modelIdsFromCatalog } from "./models.js";
 
 type RagPromptParams = {
   prompt: string;
   fileIds?: string[];
   model?: string;
-};
-
-type UploadAgentFileToolParams = {
-  filename: string;
-  mimeType: string;
-  contentBase64?: string;
-  filePath?: string;
-  targetModel?: string;
-  bucketId?: string;
-  waitForReady?: boolean;
 };
 
 type UploadKnowledgeFileToolParams = {
@@ -81,7 +62,6 @@ type UploadKnowledgeFilesBatchToolParams = {
   bucketSlugs?: string[];
   bucket?: string;
   createMissingBuckets?: boolean;
-  dryRun?: boolean;
   waitForBatchReady?: boolean;
 };
 
@@ -198,9 +178,6 @@ export function createCalypsoMcpServer(options: {
   let calypsoClient: OpenAI | null = null;
   const discoveredModelIds = modelIdsFromCatalog(modelCatalog);
   const discoveredModelIdSet = new Set(discoveredModelIds);
-  const modelDescriptorsById = new Map(
-    modelCatalog.models.map((model) => [model.id, model]),
-  );
   const modelListText = discoveredModelIds
     .map((modelId) => `\`${modelId}\``)
     .join(", ");
@@ -213,59 +190,6 @@ export function createCalypsoMcpServer(options: {
       );
     }
     return modelId;
-  }
-
-  function resolveRagModelDescriptor(
-    modelId: string,
-  ): CalypsoRagModelDescriptor {
-    const descriptor = modelDescriptorsById.get(modelId);
-    if (!descriptor) {
-      throw new Error(
-        `Unknown Calypso RAG model \`${modelId}\`. Available models: ${discoveredModelIds.join(", ")}`,
-      );
-    }
-    return descriptor;
-  }
-
-  function describeModelBuckets(model: CalypsoRagModelDescriptor): string {
-    const buckets = model.buckets || [];
-    if (buckets.length === 0) {
-      return `${model.id}: no active buckets configured`;
-    }
-    return `${model.id}: ${buckets
-      .map(
-        (bucket) => `${bucket.name || bucket.slug || bucket.id} (${bucket.id})`,
-      )
-      .join(", ")}`;
-  }
-
-  function resolveUploadBucketId(
-    model: CalypsoRagModelDescriptor,
-    value?: string,
-  ): string {
-    const requestedBucketId = String(value || "").trim();
-    const bucketIds = (model.buckets || []).map((bucket) => bucket.id);
-    if (requestedBucketId) {
-      if (!bucketIds.includes(requestedBucketId)) {
-        throw new Error(
-          `Bucket \`${requestedBucketId}\` is not active for model \`${model.id}\`. Available buckets: ${
-            bucketIds.join(", ") || "none"
-          }`,
-        );
-      }
-      return requestedBucketId;
-    }
-    if (bucketIds.length === 1) {
-      return bucketIds[0];
-    }
-    if (bucketIds.length === 0) {
-      throw new Error(
-        `Model \`${model.id}\` has no active buckets. Bind this agent variant to a knowledge bucket before uploading files.`,
-      );
-    }
-    throw new Error(
-      `Model \`${model.id}\` has multiple buckets. Provide bucketId. Available buckets: ${bucketIds.join(", ")}`,
-    );
   }
 
   function hasKnowledgeBucketDestination(value: {
@@ -387,7 +311,6 @@ export function createCalypsoMcpServer(options: {
         tools: [
           CALYPSO_RAG_AGENT,
           CALYPSO_LIST_KNOWLEDGE_BUCKETS,
-          CALYPSO_UPLOAD_AGENT_FILE,
           CALYPSO_UPLOAD_KNOWLEDGE_FILE,
           CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
         ],
@@ -400,7 +323,6 @@ export function createCalypsoMcpServer(options: {
         ],
         prompts: [
           "calypso-knowledge-question",
-          "calypso-agent-file-question",
           "calypso-knowledge-ingestion",
           "calypso-reset-conversation",
         ],
@@ -437,7 +359,7 @@ export function createCalypsoMcpServer(options: {
     "calypso://workflows",
     {
       description:
-        "Supported Calypso RAG, agent-file, and knowledge-store workflows.",
+        "Supported Calypso RAG and knowledge-store upload workflows.",
       mimeType: "application/json",
     },
     (uri) =>
@@ -455,16 +377,6 @@ export function createCalypsoMcpServer(options: {
             ],
           },
           {
-            name: "Bucket-backed agent file query",
-            tool: CALYPSO_UPLOAD_AGENT_FILE,
-            steps: [
-              "Upload one file with contentBase64 or filePath.",
-              "Choose a RAG model and bucketId when the model has multiple buckets; single-bucket models auto-select the bucket.",
-              "Use the returned file_id in calypso-rag-agent fileIds after indexing is ready.",
-              "The uploaded file is stored as durable bucket-backed knowledge for the selected RAG variant.",
-            ],
-          },
-          {
             name: "Durable knowledge ingestion",
             tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
             steps: [
@@ -479,7 +391,7 @@ export function createCalypsoMcpServer(options: {
             steps: [
               "Upload 1 to 100 files with a required batchIdempotencyKey.",
               "Use shared bucketIds, bucketSlugs, bucket, or createMissingBuckets defaults, with optional per-item overrides.",
-              "Use dryRun to validate manifests and waitForBatchReady when the next step depends on batch completion.",
+              "Use waitForBatchReady when the next step depends on batch completion.",
               "Read item statuses and bucketSync fields to distinguish accepted, queued, indexed, and bucket-ready states.",
             ],
           },
@@ -542,39 +454,6 @@ export function createCalypsoMcpServer(options: {
               constraints
                 ? `Constraints: ${constraints}`
                 : "Include source-aware reasoning when available.",
-            ].join("\n"),
-          },
-        },
-      ],
-    }),
-  );
-
-  server.prompt(
-    "calypso-agent-file-question",
-    "Ask over bucket-backed file IDs returned by calypso-upload-agent-file.",
-    {
-      fileIds: z
-        .string()
-        .optional()
-        .describe("Comma-separated uploaded file_id values."),
-      question: z
-        .string()
-        .optional()
-        .describe("Question to ask over the uploaded files."),
-    },
-    ({ fileIds, question }) => ({
-      description:
-        "Retrieval-backed question over uploaded bucket-backed agent files.",
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text: [
-              "Call calypso-rag-agent with the supplied fileIds after the file has been uploaded into the selected model bucket.",
-              `Available RAG models: ${modelListText}.`,
-              `fileIds: ${fileIds || "file_..."}`,
-              `Question: ${question || "Ask a focused question about the uploaded file contents."}`,
             ].join("\n"),
           },
         },
@@ -725,127 +604,6 @@ export function createCalypsoMcpServer(options: {
             {
               type: "text" as const,
               text: `Error: Failed to list Calypso knowledge buckets. ${error}`,
-            },
-          ],
-        };
-      }
-    },
-  );
-
-  server.tool(
-    CALYPSO_UPLOAD_AGENT_FILE,
-    [
-      "[CALYPSO UPLOAD AGENT FILE]",
-      "Uploads a file through the agent-facing API, backed by one durable knowledge bucket.",
-      "",
-      "Use this when you want a compatible `file_id` that can be attached to `calypso-rag-agent`.",
-      "The MCP sends `purpose=user_data`, targets the selected RAG agent with `target_model`,",
-      "passes exactly one `bucket_id`, and can optionally wait until the file is RAG-ready before returning.",
-      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64`; use `filePath` only when this MCP process can read that exact local path.",
-      `Bucket bindings by model: ${modelCatalog.models.map(describeModelBuckets).join("; ")}.`,
-    ].join("\n"),
-    {
-      filename: z.string().describe("Display filename for the uploaded file."),
-      mimeType: z.string().describe("Content type for the uploaded file."),
-      contentBase64: z
-        .string()
-        .optional()
-        .describe(
-          "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
-        ),
-      filePath: z
-        .string()
-        .optional()
-        .describe(
-          "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
-        ),
-      targetModel: z
-        .string()
-        .optional()
-        .describe(
-          `Optional RAG agent id. Defaults to \`${modelCatalog.defaultModel}\`. Available models: ${discoveredModelIds.join(", ")}.`,
-        ),
-      bucketId: z
-        .string()
-        .optional()
-        .describe(
-          "Required when the selected model has multiple buckets. Auto-selected when the selected model has exactly one active bucket.",
-        ),
-      waitForReady: z
-        .boolean()
-        .optional()
-        .describe(
-          "If true, wait until the uploaded file is RAG-ready before returning.",
-        ),
-    },
-    async ({
-      filename,
-      mimeType,
-      contentBase64,
-      filePath,
-      targetModel,
-      bucketId,
-      waitForReady,
-    }: UploadAgentFileToolParams) => {
-      try {
-        await logEvent(
-          "info",
-          "Uploading file to Calypso bucket-backed agent store.",
-          {
-            tool: CALYPSO_UPLOAD_AGENT_FILE,
-            filename,
-            mimeType,
-            source: contentBase64 ? "contentBase64" : "filePath",
-            waitForReady: waitForReady !== false,
-          },
-        );
-
-        const selectedTargetModel = resolveRagModelId(targetModel);
-        const selectedModel = resolveRagModelDescriptor(selectedTargetModel);
-        const selectedBucketId = resolveUploadBucketId(selectedModel, bucketId);
-        const uploaded = await uploadAgentFile(config, {
-          filename,
-          mimeType,
-          contentBase64,
-          filePath,
-          targetModel: selectedTargetModel,
-          bucketId: selectedBucketId,
-          waitForReady,
-        });
-
-        await logEvent(
-          "info",
-          "Calypso bucket-backed agent upload completed.",
-          {
-            tool: CALYPSO_UPLOAD_AGENT_FILE,
-            fileId: uploaded.id,
-            bucketId: selectedBucketId,
-            status: uploaded.status,
-            readiness: uploaded.metadata?.rag_readiness?.state || null,
-          },
-        );
-
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: formatJson(uploaded),
-            },
-          ],
-        };
-      } catch (error) {
-        console.error(`Error calling ${CALYPSO_UPLOAD_AGENT_FILE}:`, error);
-        await logEvent("error", "Calypso bucket-backed agent upload failed.", {
-          tool: CALYPSO_UPLOAD_AGENT_FILE,
-          filename,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text" as const,
-              text: `Error: Failed to upload file into the selected model bucket. ${error}`,
             },
           ],
         };
@@ -1127,10 +885,6 @@ export function createCalypsoMcpServer(options: {
         .describe(
           "If true, create missing shared bucket slugs before assignment.",
         ),
-      dryRun: z
-        .boolean()
-        .optional()
-        .describe("If true, validate the batch request without storing files."),
       waitForBatchReady: z
         .boolean()
         .optional()
@@ -1145,7 +899,6 @@ export function createCalypsoMcpServer(options: {
       bucketSlugs,
       bucket,
       createMissingBuckets,
-      dryRun,
       waitForBatchReady,
     }: UploadKnowledgeFilesBatchToolParams) => {
       try {
@@ -1156,13 +909,11 @@ export function createCalypsoMcpServer(options: {
           bucketSlugs,
           bucket,
           createMissingBuckets,
-          dryRun,
           waitForBatchReady,
         });
         await logEvent("info", "Uploading knowledge file batch to Calypso.", {
           tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
           itemCount: items.length,
-          dryRun: dryRun === true,
           sharedBucketCount:
             (bucketIds?.length || 0) +
             (bucketSlugs?.length || 0) +
@@ -1177,7 +928,6 @@ export function createCalypsoMcpServer(options: {
           bucketSlugs,
           bucket,
           createMissingBuckets,
-          dryRun,
           waitForBatchReady,
         });
 

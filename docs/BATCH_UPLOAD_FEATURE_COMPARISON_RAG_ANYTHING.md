@@ -4,7 +4,7 @@
 
 The Calypso MCP and `rag-anything-mcp` both let users ingest multiple documents for RAG, but they solve different user problems.
 
-Calypso MCP is a hosted, durable knowledge ingestion surface. Its batch upload tool, `calypso-upload-knowledge-files-batch`, sends 1 to 100 files to the Calypso API, creates durable knowledge records, assigns files to buckets, returns batch status, and can poll until the batch reaches a terminal indexing state.
+Calypso MCP is a hosted, durable knowledge ingestion surface. Its batch upload tool, `calypso-upload-knowledge-files-batch`, creates upload sessions for 1 to 100 files, uploads bytes directly to storage, finalizes durable knowledge records, assigns files to buckets, returns batch status, and can poll until the batch reaches a terminal indexing state.
 
 `rag-anything-mcp` is a local workspace ingestion server built on RAGAnything and LightRAG. Its closest batch feature is `process_directory`, which scans a local folder and processes matching files into a local shared workspace with multimodal parsing and graph-backed querying.
 
@@ -15,7 +15,7 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 | Area | Calypso MCP Batch Uploads | `rag-anything-mcp` Directory Ingestion |
 | --- | --- | --- |
 | Main user-facing batch tool | `calypso-upload-knowledge-files-batch` | `process_directory` |
-| Batch model | Explicit list of files in one multipart batch request. | Local directory scan over matching file extensions. |
+| Batch model | Explicit list of files that become one batch upload-session flow. | Local directory scan over matching file extensions. |
 | File input | Each item supports `contentBase64` or `filePath`. | Uses local `directory_path`; single-file flow uses local `file_path`. |
 | Remote execution fit | Strong. `contentBase64` works well for Smithery and remote MCP clients. | Limited. Requires MCP server access to the local filesystem path. |
 | Batch size | Client-side max of 100 files per request. | No explicit MCP-level batch size cap; practical limits depend on machine, memory, parser, and `max_workers`. |
@@ -23,7 +23,7 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 | Status model | Returns batch id, item statuses, accepted/rejected counts, queued/indexing/active/failed counters, and optional polling with `waitForBatchReady`. | Returns a final text message after `process_folder_complete`; no public per-file batch id or polling contract. |
 | Query readiness | Explicitly distinguishes accepted/queued from indexed and bucket-ready states. | Processing call is expected to complete before querying; readiness is mostly implicit. |
 | Idempotency | Requires `batchIdempotencyKey`; each item gets deterministic or supplied `clientFileId`. | Avoids reprocessing by checking already ingested documents by filename, but does not expose a user-facing idempotency key. |
-| Dry run | Supports `dryRun: true` for manifest/bucket validation without writing files. | No equivalent dry-run workflow in the MCP tool. |
+| Dry run | No dry-run tool; upload-session creation validates metadata before bytes are finalized. | No equivalent dry-run workflow in the MCP tool. |
 | Bucket or collection assignment | Supports shared and per-item `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets`. | No team bucket concept. Everything lands in the configured local workspace. |
 | Per-item metadata | Supports `title`, `tags`, and `metadata` per item, plus shared bucket defaults. | Does not expose comparable per-file metadata fields in `process_directory`. |
 | Storage model | Hosted Calypso/AIcore durable storage, Firestore catalog, queue jobs, Gemini File Search indexing, and bucket stores. | Local `SHARED_WORKDIR` plus `OUTPUT_DIR`, backed by LightRAG/RAGAnything local storage. |
@@ -41,16 +41,19 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 1. User calls `calypso-upload-knowledge-files-batch`.
 2. User provides `items`, `batchIdempotencyKey`, and optional shared bucket defaults.
 3. Each item supplies either `contentBase64` or `filePath`.
-4. Calypso creates durable upload records and indexing jobs.
-5. Tool returns a batch object with accepted/rejected counts and item details.
-6. If `waitForBatchReady` is true, the tool polls `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
-7. Files become useful for retrieval after indexing reaches active and bucket sync is active.
+4. Calypso creates upload sessions and returns direct storage upload URLs.
+5. The MCP uploads each file directly to storage and finalizes the batch session.
+6. Tool returns a batch object with finalized/pending/failed item details.
+7. If `waitForBatchReady` is true, the tool polls `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
+8. Files become useful for retrieval after indexing reaches active and bucket sync is active.
 
 ```mermaid
 flowchart LR
   userCall["MCP Client"] --> calypsoTool["calypso-upload-knowledge-files-batch"]
-  calypsoTool --> batchApi["Calypso files:batch API"]
-  batchApi --> durableQueue["Durable Index Queue"]
+  calypsoTool --> sessionApi["Calypso batch upload-session API"]
+  sessionApi --> directStorage["Direct storage uploads"]
+  directStorage --> finalize["Finalize batch session"]
+  finalize --> durableQueue["Durable Index Queue"]
   durableQueue --> indexWorker["AIcore Index Worker"]
   indexWorker --> bucketStore["Bucket Retrieval Store"]
   bucketStore --> ragAgent["Calypso RAG Agent"]

@@ -17,7 +17,7 @@ One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts
 
 - **Super simple setup**: `npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-your-key-here`
 - **True multimodal RAG**: handles text and visuals natively through Gemini File Search
-- **Upload and query**: dedicated tools for agent files, durable knowledge files, and batch uploads
+- **Upload and query**: dedicated tools for durable knowledge files and batch uploads
 - **Multi-turn conversations**: context-aware answers with `/new` reset
 - **Discoverable workflows**: resources and prompts for safe RAG, upload, and ingestion flows
 
@@ -52,7 +52,7 @@ Calypso is built for teams that want the easiest hosted multimodal RAG MCP serve
 | **Multimodal** | Native Gemini File Search (text + images, charts, diagrams, PDFs) with no extra vision pipeline | Strong OpenAI vision-based document RAG | Excellent for video, audio, images, and tables |
 | **Hosting** | Fully hosted (self-host option) | Local-first | Local-first |
 | **Operations** | Zero-ops cloud | Requires Python setup | Requires Docker |
-| **Upload tools** | Built-in single file, durable knowledge file, and batch upload tools | Yes | Yes |
+| **Upload tools** | Built-in upload-session single file and batch knowledge tools | Yes | Yes |
 | **Citations / grounding** | Strong evidence trail with retrieval metadata | Yes | Yes |
 | **Best for** | Teams wanting zero-ops hosted multimodal RAG for MCP clients | Local document RAG experiments | Heavy local video/audio/data workflows |
 
@@ -61,7 +61,7 @@ Calypso is built for teams that want the easiest hosted multimodal RAG MCP serve
 ## What you get
 
 - Production multimodal RAG agent with multi-turn memory
-- Built-in upload tools for single files, batch uploads, and agent files
+- Built-in upload tools for single files and batch knowledge uploads
 - Automatic discovery of your team's RAG variants and knowledge buckets
 - Verifiable citations with source references and retrieval metadata
 - Read-only resources and reusable prompts for safe workflows
@@ -104,9 +104,10 @@ With `calypso-rag-agent` you can:
   - `POST /v1/responses`
   - `GET /v1/rag-agent/models`
   - `GET /v1/knowledge/buckets`
-  - `POST /v1/files`
-  - `POST /v1/knowledge/files`
-  - `POST /v1/knowledge/files:batch`
+  - `POST /v1/knowledge/files/upload-session`
+  - `POST /v1/knowledge/files/upload-session/{session_id}/finalize`
+  - `POST /v1/knowledge/files:batch/upload-session`
+  - `POST /v1/knowledge/files:batch/upload-session/{batch_id}/finalize`
   - `GET /v1/knowledge/batches/{batch_id}`
 - A Calypso API key (`sk-...`)
 
@@ -206,7 +207,6 @@ After restart, the MCP should appear in Claude with these tools available:
 
 - `calypso-rag-agent`
 - `calypso-list-knowledge-buckets`
-- `calypso-upload-agent-file`
 - `calypso-upload-knowledge-file`
 - `calypso-upload-knowledge-files-batch`
 
@@ -253,7 +253,7 @@ Notes:
 - Each model variant keeps its own MCP conversation chain, so switching variants does not continue the wrong thread.
 - It uses `POST /v1/responses` instead of `POST /v1/chat/completions`.
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
-- Optional `fileIds` are supported for compatibility, but new agent-file uploads are bucket-backed and should be indexed into the selected model bucket before asking.
+- Optional `fileIds` are supported for retrieval-scoped questions. New uploads should use the durable knowledge upload tools and wait for indexing before asking.
 - Use `/new` as the prompt to reset the MCP conversation.
 
 ### `calypso-list-knowledge-buckets`
@@ -264,7 +264,7 @@ Notes:
 - Does not accept `team_id`; Calypso derives team scope from the API key.
 - Returns bucket ids, slugs, names, status, member counts, source counts, and bucket-store readiness.
 - Defaults to active buckets only. Pass `includeArchived: true` when you need archived buckets for audits or cleanup.
-- Use this before `calypso-upload-knowledge-file`, `calypso-upload-knowledge-files-batch`, or `calypso-upload-agent-file` when you need to choose a destination bucket.
+- Use this before `calypso-upload-knowledge-file` or `calypso-upload-knowledge-files-batch` when you need to choose a destination bucket.
 - `calypso://rag-agent-models` answers which buckets are bound to each RAG variant. `calypso-list-knowledge-buckets` answers which buckets exist for the API key's team.
 
 Example:
@@ -275,40 +275,11 @@ Example:
 }
 ```
 
-### `calypso-upload-agent-file`
-Uploads a file through the agent-facing `/v1/files` API, backed by exactly one durable knowledge bucket, and returns a compatible OpenAI-style `file_id`.
-
-Notes:
-- Sends `purpose=user_data` on the upload request.
-- Sends `target_model` so the upload is routed to the intended RAG variant.
-- Sends `bucket_id` so the durable knowledge file lands in the selected bucket.
-- If the selected model has one active bucket, the MCP auto-selects that bucket.
-- If the selected model has multiple active buckets, pass `bucketId`.
-- If the selected model has no active buckets, bind that agent variant to a knowledge bucket before uploading.
-- Use `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use `filePath` only when the Calypso MCP server process can read that exact local path.
-- Do not pass hosted attachment paths such as `/mnt/user-data/uploads/...` as `filePath`; convert the attachment to `contentBase64` instead.
-- Can optionally wait until the file is RAG-ready before returning.
-
-Example:
-
-```json
-{
-  "filename": "contract.pdf",
-  "mimeType": "application/pdf",
-  "contentBase64": "<base64 file bytes>",
-  "targetModel": "calypso-rag-agent:legal",
-  "bucketId": "bucket_abc123",
-  "waitForReady": true
-}
-```
-
-Read `calypso://rag-agent-models` to inspect each discovered model's `buckets` array before choosing `bucketId`.
-
 ### `calypso-upload-knowledge-file`
 Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.
 
 Notes:
-- Uses `POST /v1/knowledge/files`.
+- Uses `POST /v1/knowledge/files/upload-session`, uploads bytes directly to storage, then finalizes with `POST /v1/knowledge/files/upload-session/{session_id}/finalize`.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
 - Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
 - Use `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use `filePath` only when the Calypso MCP server process can read that exact local path.
@@ -335,13 +306,12 @@ Example:
 Uploads 1 to 100 files into the durable knowledge store in one request.
 
 Notes:
-- Uses `POST /v1/knowledge/files:batch` with a JSON manifest plus one multipart file part per item.
+- Uses `POST /v1/knowledge/files:batch/upload-session`, uploads each accepted item directly to storage, then finalizes with `POST /v1/knowledge/files:batch/upload-session/{batch_id}/finalize`.
 - Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
 - Requires a shared bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`, unless every item provides its own bucket destination.
 - Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
 - Use per-item `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use per-item `filePath` only when the Calypso MCP server process can read that exact local path.
 - Generates Firestore-safe `client_file_id` values when `clientFileId` is omitted.
-- Supports `dryRun: true` to validate manifest and bucket behavior without storing files.
 - `accepted` or `queued` means the upload is durable, not necessarily query-ready. Use `waitForBatchReady: true` to poll `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
 - Inspect per-item status, `bucketSyncStatus`, and `bucketSync` to distinguish indexed content from bucket-ready retrieval.
 
@@ -375,7 +345,7 @@ Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants disc
 Read-only runtime list of knowledge buckets for the team tied to the configured API key. Use it to inspect bucket ids/slugs and bucket-store readiness before uploads.
 
 ### `calypso://workflows`
-A compact guide to the supported RAG, agent-file, and knowledge-file workflows.
+A compact guide to the supported RAG and knowledge-file workflows.
 
 ### `calypso://security`
 Operational security notes for API keys, local file reads, uploads, and logging.
@@ -383,7 +353,6 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ## Available prompts
 
 - **`calypso-knowledge-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
-- **`calypso-agent-file-question`**: ask over uploaded `file_id` values using `rag_policy` semantics
 - **`calypso-knowledge-ingestion`**: prepare a durable knowledge-store upload and follow-up query
 - **`calypso-reset-conversation`**: start a clean RAG thread with `/new`
 
@@ -407,15 +376,6 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 - **Ask for sources or justification**:
   - `Explain which documented components are involved and why`
 
-### Agent-store file flow
-
-- **Upload a file for the RAG agent**:
-  - Call `calypso-upload-agent-file` with `filename`, `mimeType`, and `contentBase64` for hosted/remote uploads; use `filePath` only for files local to the MCP server
-- **Ask over the uploaded file**:
-  - Call `calypso-rag-agent` with your `prompt` and the returned `fileIds`
-- **RAG semantics**:
-  - The MCP automatically uses `rag_policy` when `fileIds` are attached
-
 ### Knowledge-store file flow
 
 - **Discover buckets**:
@@ -436,8 +396,6 @@ Operational security notes for API keys, local file reads, uploads, and logging.
   - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and `contentBase64` per item for hosted/remote uploads; use `filePath` only for files local to the MCP server
 - **Route the batch into buckets**:
   - Put shared `bucket`, `bucketSlugs`, `bucketIds`, or `createMissingBuckets` on the tool call, then override per item only when needed
-- **Validate first**:
-  - Use `dryRun: true` before large ingestions to catch manifest, bucket, or file-part issues
 - **Wait for query readiness**:
   - Use `waitForBatchReady: true` and inspect returned item status plus bucket sync fields before querying fresh content
 

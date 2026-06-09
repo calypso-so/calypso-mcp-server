@@ -11,7 +11,6 @@ const serverPath = path.join(repoRoot, "dist", "index.js");
 const requiredTools = {
   "calypso-rag-agent": ["prompt", "model"],
   "calypso-list-knowledge-buckets": ["includeArchived"],
-  "calypso-upload-agent-file": ["filename", "mimeType", "bucketId"],
   "calypso-upload-knowledge-file": ["filename", "mimeType", "bucket"],
   "calypso-upload-knowledge-files-batch": [
     "items",
@@ -30,7 +29,6 @@ const requiredResources = [
 
 const requiredPrompts = [
   "calypso-knowledge-question",
-  "calypso-agent-file-question",
   "calypso-knowledge-ingestion",
   "calypso-reset-conversation",
 ];
