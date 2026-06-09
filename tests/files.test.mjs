@@ -14,6 +14,33 @@ import {
   waitForKnowledgeFileIndexed,
 } from "../dist/files.js";
 
+function getRequestHeader(headers, name) {
+  if (!headers) {
+    return undefined;
+  }
+
+  if (typeof headers.get === "function") {
+    return headers.get(name) ?? undefined;
+  }
+
+  const normalizedName = name.toLowerCase();
+  if (Array.isArray(headers)) {
+    const entry = headers.find(
+      ([key]) => String(key).toLowerCase() === normalizedName,
+    );
+    return entry ? String(entry[1]) : undefined;
+  }
+
+  const entry = Object.entries(headers).find(
+    ([key]) => key.toLowerCase() === normalizedName,
+  );
+  if (!entry) {
+    return undefined;
+  }
+
+  return Array.isArray(entry[1]) ? entry[1].join(", ") : String(entry[1]);
+}
+
 test("stripDataUriPrefix removes data URI metadata", () => {
   assert.equal(
     stripDataUriPrefix("data:text/plain;base64,aGVsbG8="),
@@ -238,6 +265,7 @@ test("uploadKnowledgeFile uses upload session flow", async () => {
         mimeType: "text/plain",
         contentBase64: "aGVsbG8=",
         bucketIds: ["bucket-1"],
+        idempotencyKey: "upload-hello",
       },
     );
 
@@ -250,6 +278,26 @@ test("uploadKnowledgeFile uses upload session flow", async () => {
     assert.equal(
       calls[2].url,
       "https://api.example.test/v1/knowledge/files/upload-session/sess-123/finalize",
+    );
+    assert.equal(
+      getRequestHeader(calls[0].init.headers, "Authorization"),
+      "Bearer sk-test",
+    );
+    assert.equal(
+      getRequestHeader(calls[0].init.headers, "Content-Type"),
+      "application/json",
+    );
+    assert.equal(
+      getRequestHeader(calls[0].init.headers, "Idempotency-Key"),
+      "upload-hello",
+    );
+    assert.equal(
+      getRequestHeader(calls[2].init.headers, "Authorization"),
+      "Bearer sk-test",
+    );
+    assert.equal(
+      getRequestHeader(calls[2].init.headers, "Content-Type"),
+      "application/json",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -360,7 +408,25 @@ test("uploadKnowledgeFilesBatch uses batch upload session flow", async () => {
       calls[2].url,
       "https://api.example.test/v1/knowledge/files:batch/upload-session/batch_123/finalize",
     );
-    assert.equal(calls[0].init.headers.get("Authorization"), "Bearer sk-test");
+    assert.equal(
+      getRequestHeader(calls[0].init.headers, "Authorization"),
+      "Bearer sk-test",
+    );
+    assert.equal(
+      getRequestHeader(calls[0].init.headers, "Content-Type"),
+      "application/json",
+    );
+    assert.equal(
+      getRequestHeader(calls[2].init.headers, "Authorization"),
+      "Bearer sk-test",
+    );
+    assert.equal(
+      getRequestHeader(calls[2].init.headers, "Content-Type"),
+      "application/json",
+    );
+    assert.deepEqual(JSON.parse(calls[2].init.body), {
+      mode: "finalize_uploaded",
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

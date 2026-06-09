@@ -39,7 +39,7 @@ Only provide `filePath` values for files you intend to upload to Calypso. MCP cl
 
 ## Upload Behavior
 
-Knowledge upload tools create upload sessions with the configured Calypso API base URL, upload file bytes directly to the returned storage URL, then finalize the session with Calypso. Treat returned upload URLs as short-lived bearer capabilities and do not log them.
+Knowledge upload tools create upload sessions with the configured Calypso API base URL, upload file bytes directly to the returned storage URL, then finalize the session with Calypso. The upload transport uses JSON session requests plus signed binary `PUT`s, not multipart form uploads. Treat returned upload URLs as short-lived bearer capabilities and do not log them.
 
 Before using a self-hosted `CALYPSO_API_BASE_URL`, verify that it is trusted and ends in `/v1`.
 

@@ -100,6 +100,7 @@ With `calypso-rag-agent` you can:
 ## Requirements
 
 - Node.js 18+
+- The server uses Web Fetch API primitives (`fetch`, `Headers`, `Request`, `Response`, `FormData`, `Blob`, and `File`) for API calls and SDK compatibility. The package bootstraps missing globals at startup for MCP runtimes that expose only part of the Node 18+ Web API surface.
 - A Calypso API endpoint that exposes:
   - `POST /v1/responses`
   - `GET /v1/rag-agent/models`
@@ -290,6 +291,7 @@ Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible dep
 - **Wrong API host**: make sure `--api-base-url` / `CALYPSO_API_BASE_URL` ends in `/v1`
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
 - **Smithery launch mismatch**: use the packaged `npx -y @calypsohq/multimodal-rag-mcp-server` path instead of running `node dist/index.js` from a fresh clone
+- **`FormData is not defined` or `Headers is not defined`**: upgrade to the latest package. The MCP server bootstraps missing Web Fetch API globals before upload tools run.
 - **ENOENT for `/mnt/user-data/uploads/...`**: that path belongs to a hosted agent or attachment sandbox, not necessarily to the MCP server. Retry with `contentBase64` instead of `filePath`.
 - **Local artifact saving**: Calypso answers can be used with Claude Desktop's filesystem MCP server, but Claude must be explicitly asked to save the final output to an allowed local path.
 
@@ -346,6 +348,7 @@ Uploads a file into the durable bucket-backed knowledge store and indexing pipel
 
 Notes:
 - Uses `POST /v1/knowledge/files/upload-session`, uploads bytes directly to storage, then finalizes with `POST /v1/knowledge/files/upload-session/{session_id}/finalize`.
+- Uploads use JSON session requests plus signed binary `PUT`s, not multipart form uploads.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
 - Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
 - Use `filePath` for local Claude Desktop/Cursor MCP installs where the server can read the path. Use `contentBase64` for hosted or remote MCP clients that cannot read local paths.
@@ -373,6 +376,7 @@ Uploads 1 to 100 files into the durable knowledge store in one request.
 
 Notes:
 - Uses `POST /v1/knowledge/files:batch/upload-session`, uploads each accepted item directly to storage, then finalizes with `POST /v1/knowledge/files:batch/upload-session/{batch_id}/finalize`.
+- Uploads use JSON session requests plus signed binary `PUT`s, not multipart form uploads.
 - Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
 - Requires a shared bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`, unless every item provides its own bucket destination.
 - Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
