@@ -210,6 +210,63 @@ After restart, the MCP should appear in Claude with these tools available:
 - `calypso-upload-knowledge-file`
 - `calypso-upload-knowledge-files-batch`
 
+### Optional: Save Claude Artifacts To Your Mac
+
+Calypso provides hosted multimodal RAG tools. It does not write generated reports, summaries, CSVs, JSON files, or web-search artifacts directly to your local computer.
+
+To let Claude Desktop save generated files locally, add the standard filesystem MCP server alongside Calypso and restrict it to a dedicated safe folder.
+
+Create the folder first:
+
+```bash
+mkdir -p ~/Claude
+```
+
+Then add both servers to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "Calypso Multimodal RAG": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@calypsohq/multimodal-rag-mcp-server"
+      ],
+      "env": {
+        "CALYPSO_API_KEY": "sk-your-calypso-api-key",
+        "CALYPSO_API_BASE_URL": "https://api.calypso.so/v1"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/yourname/Claude"
+      ]
+    }
+  }
+}
+```
+
+Fully quit and reopen Claude Desktop after changing the config.
+
+Example prompt:
+
+```text
+Use Calypso for the grounded RAG answer, then save the final report as /Users/yourname/Claude/report.md using the filesystem tool.
+```
+
+For safety, only grant filesystem access to a dedicated folder such as `~/Claude`, not your whole home directory.
+
+| Concern | Best Owner |
+| --- | --- |
+| Source-backed RAG answers | Calypso MCP |
+| Uploading files into Calypso | Calypso MCP |
+| Writing `.md`, `.pdf`, `.json`, `.csv`, etc. to your Mac | filesystem MCP |
+| Web search artifacts from Claude | Claude plus filesystem MCP prompt |
+
 ## Smithery
 
 The server is available on [Smithery](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server) and launches through the same `npx` package path used by desktop clients.
@@ -234,6 +291,7 @@ Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible dep
 - **Self-hosted deployment**: only override the base URL if you are not using `https://api.calypso.so/v1`
 - **Smithery launch mismatch**: use the packaged `npx -y @calypsohq/multimodal-rag-mcp-server` path instead of running `node dist/index.js` from a fresh clone
 - **ENOENT for `/mnt/user-data/uploads/...`**: that path belongs to a hosted agent or attachment sandbox, not necessarily to the MCP server. Retry with `contentBase64` instead of `filePath`.
+- **Local artifact saving**: Calypso answers can be used with Claude Desktop's filesystem MCP server, but Claude must be explicitly asked to save the final output to an allowed local path.
 
 ## Choosing `filePath` vs `contentBase64`
 
