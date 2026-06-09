@@ -64,7 +64,7 @@
     {
       "name": "calypso-upload-knowledge-file",
       "title": "Calypso Upload Knowledge File",
-      "description": "Upload a file into the durable bucket-backed knowledge store through an upload session. This tool returns knowledge-file and task metadata and requires bucketIds, bucketSlugs, or bucket.",
+      "description": "Upload one local or inline file into the durable bucket-backed knowledge store through an upload session. Choose exactly one file source: use filePath when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx; use contentBase64 for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. BucketIds, bucketSlugs, or bucket is required.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -76,13 +76,13 @@
             "type": "string",
             "description": "Content type for the uploaded knowledge file."
           },
-          "contentBase64": {
-            "type": "string",
-            "description": "Base64-encoded file content. Recommended for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the bytes directly."
-          },
           "filePath": {
             "type": "string",
-            "description": "Advanced local-only path. Use only when the Calypso MCP server runs on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead."
+            "description": "Preferred for local MCP installs, including Claude Desktop and Cursor configs that run this package with a local command such as npx. Absolute or relative path readable by the machine running this MCP server. The server reads raw bytes and uploads them through the Calypso upload-session URL; no user-side base64 conversion is needed."
+          },
+          "contentBase64": {
+            "type": "string",
+            "description": "Inline file bytes as base64. Use when filePath is not possible, such as hosted or remote MCP servers, browser-provided files, generated content, or remote sandbox attachment paths that the MCP process cannot read."
           },
           "title": {
             "type": "string",
@@ -147,7 +147,7 @@
     {
       "name": "calypso-upload-knowledge-files-batch",
       "title": "Calypso Upload Knowledge Files Batch",
-      "description": "Upload 1 to 100 files into the durable knowledge store through batch upload sessions. A shared bucket destination is required unless every item has its own bucket destination.",
+      "description": "Upload 1 to 100 local or inline files into the durable knowledge store through batch upload sessions. Choose exactly one file source per item: use filePath when this MCP server runs locally and can read each path, including Claude Desktop or Cursor configs that launch this package with npx; use contentBase64 for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. A shared bucket destination is required unless every item has its own bucket destination.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -167,13 +167,13 @@
                   "type": "string",
                   "description": "Content type for this knowledge file."
                 },
-                "contentBase64": {
-                  "type": "string",
-                  "description": "Base64-encoded file content. Recommended for Claude, Smithery, browser, and hosted-agent uploads because the MCP process receives the bytes directly."
-                },
                 "filePath": {
                   "type": "string",
-                  "description": "Advanced local-only path. Use only when the Calypso MCP server runs on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead."
+                  "description": "Preferred for local MCP installs, including Claude Desktop and Cursor configs that run this package with a local command such as npx. Absolute or relative path readable by the machine running this MCP server. The server reads raw bytes and uploads them through the Calypso upload-session URL; no user-side base64 conversion is needed."
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "description": "Inline file bytes as base64. Use when filePath is not possible, such as hosted or remote MCP servers, browser-provided files, generated content, or remote sandbox attachment paths that the MCP process cannot read."
                 },
                 "clientFileId": {
                   "type": "string",

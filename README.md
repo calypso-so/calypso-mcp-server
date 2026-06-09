@@ -235,11 +235,19 @@ Use `calypsoApiBaseUrl` only when targeting a self-hosted Calypso-compatible dep
 - **Smithery launch mismatch**: use the packaged `npx -y @calypsohq/multimodal-rag-mcp-server` path instead of running `node dist/index.js` from a fresh clone
 - **ENOENT for `/mnt/user-data/uploads/...`**: that path belongs to a hosted agent or attachment sandbox, not necessarily to the MCP server. Retry with `contentBase64` instead of `filePath`.
 
-## Choosing `contentBase64` vs `filePath`
+## Choosing `filePath` vs `contentBase64`
 
-For Claude, Smithery, browser uploads, and hosted-agent environments, use `contentBase64`. The MCP server receives the bytes directly and does not need filesystem access.
+Use `filePath` for local MCP installs, including Claude Desktop and Cursor configs that launch this package with a local command such as:
 
-Use `filePath` only for local desktop workflows where the Calypso MCP server process runs on the same machine and can read the exact path. If the path starts with `/mnt/user-data/uploads`, `/mnt/data`, or another hosted sandbox prefix, do not send it as `filePath`; convert the attachment to `contentBase64`.
+```bash
+npx -y @calypsohq/multimodal-rag-mcp-server
+```
+
+In that setup, the MCP server process runs on your machine and can read paths available to the same user account. Pass the local path directly; the server reads raw bytes and uploads them through the Calypso upload-session URL. You do not need to base64-encode local files.
+
+Use `contentBase64` for hosted or remote MCP clients, including Smithery-hosted servers, browser/cloud runtimes, generated in-memory content, and agent containers. In those environments, a path on your Mac or workstation is not readable by the MCP server process.
+
+If a path starts with `/mnt/user-data/uploads`, `/mnt/data`, `/mnt/attachments`, or another hosted sandbox prefix, do not send it as `filePath` unless this MCP server is running in that same sandbox. Use `contentBase64` or another inline byte source instead.
 
 ## Available tools
 
@@ -282,7 +290,7 @@ Notes:
 - Uses `POST /v1/knowledge/files/upload-session`, uploads bytes directly to storage, then finalizes with `POST /v1/knowledge/files/upload-session/{session_id}/finalize`.
 - Returns knowledge-file and task metadata, not a chat attachment `file_id`.
 - Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
-- Use `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use `filePath` only when the Calypso MCP server process can read that exact local path.
+- Use `filePath` for local Claude Desktop/Cursor MCP installs where the server can read the path. Use `contentBase64` for hosted or remote MCP clients that cannot read local paths.
 - If an agent sees a path like `/mnt/user-data/uploads/file.pdf`, it should not send that as `filePath`; it should send the file bytes as `contentBase64`.
 - Supports optional `title`, `tags`, `metadata`, and `idempotencyKey`.
 - Route uploads into existing buckets with `bucketIds` or `bucketSlugs`, or use `bucket` as a single-slug shortcut.
@@ -295,7 +303,7 @@ Example:
 {
   "filename": "handbook.pdf",
   "mimeType": "application/pdf",
-  "contentBase64": "<base64 file bytes>",
+  "filePath": "/Users/me/Documents/handbook.pdf",
   "bucket": "support-handbook",
   "createMissingBuckets": true,
   "waitForIndexing": true
@@ -310,7 +318,7 @@ Notes:
 - Requires `batchIdempotencyKey`; Calypso uses it to derive the durable batch id for retries.
 - Requires a shared bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`, unless every item provides its own bucket destination.
 - Supports shared `bucketIds`, `bucketSlugs`, `bucket`, and `createMissingBuckets` defaults, plus per-item overrides.
-- Use per-item `contentBase64` for Claude, Smithery, browser, and hosted-agent uploads. Use per-item `filePath` only when the Calypso MCP server process can read that exact local path.
+- Use per-item `filePath` for local Claude Desktop/Cursor MCP installs where the server can read each path. Use per-item `contentBase64` for hosted or remote MCP clients that cannot read local paths.
 - Generates Firestore-safe `client_file_id` values when `clientFileId` is omitted.
 - `accepted` or `queued` means the upload is durable, not necessarily query-ready. Use `waitForBatchReady: true` to poll `GET /v1/knowledge/batches/{batch_id}?include_items=true`.
 - Inspect per-item status, `bucketSyncStatus`, and `bucketSync` to distinguish indexed content from bucket-ready retrieval.
@@ -326,7 +334,7 @@ Example:
     {
       "filename": "faq.txt",
       "mimeType": "text/plain",
-      "contentBase64": "<base64 file bytes>"
+      "filePath": "/Users/me/Documents/faq.txt"
     }
   ],
   "waitForBatchReady": true
@@ -382,7 +390,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
   - Call `calypso-list-knowledge-buckets` or read `calypso://knowledge-buckets` before choosing a destination
 - **Upload durable knowledge**:
   - Call `calypso-upload-knowledge-file` with the file payload and optional `title`, `tags`, or `metadata`
-  - Prefer `contentBase64` when the source is a Claude/browser/hosted-agent attachment; `filePath` must be readable by the MCP server process itself
+  - Prefer `filePath` for local Claude Desktop/Cursor MCP installs; use `contentBase64` for hosted or remote MCP clients that cannot read local paths
 - **Route knowledge into buckets**:
   - Use `bucket: "support-handbook"` for one destination, `bucketSlugs` for multiple slug-based destinations, or `bucketIds` when you already have stable bucket ids
 - **Create bucket destinations on demand**:
@@ -393,7 +401,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ### Knowledge-store batch flow
 
 - **Upload many durable files**:
-  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and `contentBase64` per item for hosted/remote uploads; use `filePath` only for files local to the MCP server
+  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and `filePath` per item for local MCP installs; use `contentBase64` per item for hosted or remote MCP clients
 - **Route the batch into buckets**:
   - Put shared `bucket`, `bucketSlugs`, `bucketIds`, or `createMissingBuckets` on the tool call, then override per item only when needed
 - **Wait for query readiness**:

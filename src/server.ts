@@ -27,8 +27,8 @@ type RagPromptParams = {
 type UploadKnowledgeFileToolParams = {
   filename: string;
   mimeType: string;
-  contentBase64?: string;
   filePath?: string;
+  contentBase64?: string;
   title?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -43,8 +43,8 @@ type UploadKnowledgeFileToolParams = {
 type UploadKnowledgeFilesBatchToolItemParams = {
   filename: string;
   mimeType: string;
-  contentBase64?: string;
   filePath?: string;
+  contentBase64?: string;
   clientFileId?: string;
   title?: string;
   tags?: string[];
@@ -381,6 +381,7 @@ export function createCalypsoMcpServer(options: {
             tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
             steps: [
               "Upload one source file with optional title, tags, metadata, idempotencyKey, and bucket fields.",
+              "For local Claude Desktop or Cursor MCP installs, pass filePath for files on the same machine. Use contentBase64 for hosted or remote MCP clients that cannot read local paths.",
               "Pass waitForIndexing when the next step depends on indexed content.",
               "Query the knowledge base with calypso-rag-agent after indexing completes.",
             ],
@@ -390,6 +391,7 @@ export function createCalypsoMcpServer(options: {
             tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
             steps: [
               "Upload 1 to 100 files with a required batchIdempotencyKey.",
+              "For local Claude Desktop or Cursor MCP installs, pass filePath per item for files on the same machine. Use contentBase64 per item for hosted or remote MCP clients.",
               "Use shared bucketIds, bucketSlugs, bucket, or createMissingBuckets defaults, with optional per-item overrides.",
               "Use waitForBatchReady when the next step depends on batch completion.",
               "Read item statuses and bucketSync fields to distinguish accepted, queued, indexed, and bucket-ready states.",
@@ -415,8 +417,9 @@ export function createCalypsoMcpServer(options: {
           "Rotate keys exposed in logs, screenshots, shell history, or support tickets.",
         ],
         localFileAccess: [
-          "Use contentBase64 for Claude, Smithery, browser, and hosted-agent uploads.",
-          "Use filePath only when the Calypso MCP server process can read that exact path on its own filesystem.",
+          "Use filePath for local MCP installs, including Claude Desktop and Cursor configs that launch this server with a local command such as npx.",
+          "Use contentBase64 for hosted or remote MCP servers, including Smithery-hosted servers, browser/cloud runtimes, and agent containers that cannot read the user's local filesystem.",
+          "A filePath must be readable by the machine and user account running the Calypso MCP server process.",
           "Do not pass hosted attachment paths such as /mnt/user-data/uploads as filePath unless this MCP server runs in that same environment.",
           "Clients should request user confirmation before tool calls that include filePath.",
         ],
@@ -487,6 +490,7 @@ export function createCalypsoMcpServer(options: {
             type: "text" as const,
             text: [
               "Use calypso-upload-knowledge-file for one source file, or calypso-upload-knowledge-files-batch for 2 to 100 files.",
+              "Use filePath for local Claude Desktop/Cursor MCP installs when the file is on the same machine; use contentBase64 for hosted or remote MCP clients.",
               "Pass bucket, bucketSlugs, or bucketIds; durable knowledge uploads require a bucket destination.",
               "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
               `Query with one of these RAG models after indexing: ${modelListText}.`,
@@ -620,7 +624,7 @@ export function createCalypsoMcpServer(options: {
       "Use this when you want a file indexed into the broader knowledge corpus instead of",
       "attached directly to a single RAG chat turn. This tool returns knowledge-file and task metadata.",
       "A bucket destination is required: pass bucketIds, bucketSlugs, or bucket.",
-      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64`; use `filePath` only when this MCP process can read that exact local path.",
+      "Choose exactly one file source. Use `filePath` when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx. Use `contentBase64` for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. Do not base64-encode local files just to use this tool.",
     ].join("\n"),
     {
       filename: z
@@ -629,17 +633,17 @@ export function createCalypsoMcpServer(options: {
       mimeType: z
         .string()
         .describe("Content type for the uploaded knowledge file."),
-      contentBase64: z
-        .string()
-        .optional()
-        .describe(
-          "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
-        ),
       filePath: z
         .string()
         .optional()
         .describe(
-          "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
+          "Preferred for local MCP installs, including Claude Desktop and Cursor configs that run this package with a local command such as npx. Absolute or relative path readable by the machine running this MCP server. The server reads raw bytes and uploads them through the Calypso upload-session URL; no user-side base64 conversion is needed.",
+        ),
+      contentBase64: z
+        .string()
+        .optional()
+        .describe(
+          "Inline file bytes as base64. Use when filePath is not possible, such as hosted or remote MCP servers, browser-provided files, generated content, or remote sandbox attachment paths that the MCP process cannot read.",
         ),
       title: z
         .string()
@@ -785,7 +789,7 @@ export function createCalypsoMcpServer(options: {
       "provides its own bucket fields. The tool returns batch-level status and, when requested,",
       "polls until the batch reaches active, partially_active, partially_failed, failed, or timeout.",
       "A shared bucket destination is required unless every item provides its own bucket destination.",
-      "For Claude, Smithery, browser, or hosted-agent uploads, pass `contentBase64` per item; use `filePath` only for files local to this MCP process.",
+      "Choose exactly one file source per item. Use `filePath` when this MCP server runs locally and can read each path, including Claude Desktop or Cursor configs that launch this package with npx. Use `contentBase64` for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. Do not base64-encode local files just to use this tool.",
     ].join("\n"),
     {
       items: z
@@ -797,17 +801,17 @@ export function createCalypsoMcpServer(options: {
             mimeType: z
               .string()
               .describe("Content type for this knowledge file."),
-            contentBase64: z
-              .string()
-              .optional()
-              .describe(
-                "Base64-encoded file content. Recommended for Claude, Smithery, browser, and remote-agent uploads because the MCP process receives the bytes directly.",
-              ),
             filePath: z
               .string()
               .optional()
               .describe(
-                "Advanced local-only path. Use only when the Calypso MCP server is running on the same filesystem and can read this exact path; hosted attachment paths such as /mnt/user-data/uploads usually require contentBase64 instead.",
+                "Preferred for local MCP installs, including Claude Desktop and Cursor configs that run this package with a local command such as npx. Absolute or relative path readable by the machine running this MCP server. The server reads raw bytes and uploads them through the Calypso upload-session URL; no user-side base64 conversion is needed.",
+              ),
+            contentBase64: z
+              .string()
+              .optional()
+              .describe(
+                "Inline file bytes as base64. Use when filePath is not possible, such as hosted or remote MCP servers, browser-provided files, generated content, or remote sandbox attachment paths that the MCP process cannot read.",
               ),
             clientFileId: z
               .string()
