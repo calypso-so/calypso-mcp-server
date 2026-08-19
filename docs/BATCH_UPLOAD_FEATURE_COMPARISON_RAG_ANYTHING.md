@@ -4,7 +4,7 @@
 
 The Calypso MCP and `rag-anything-mcp` both let users ingest multiple documents for RAG, but they solve different user problems.
 
-Calypso MCP is a hosted, durable knowledge ingestion surface. Its batch upload tool, `calypso-upload-knowledge-files-batch`, creates upload sessions for 1 to 100 files, uploads bytes directly to storage, finalizes durable knowledge records, assigns files to buckets, returns batch status, and can poll until the batch reaches a terminal indexing state.
+Calypso MCP is a hosted, durable knowledge ingestion surface. Its batch upload tool, `calypso-upload-files-batch`, creates upload sessions for 1 to 100 files, uploads bytes directly to storage, finalizes durable knowledge records, assigns files to buckets, returns batch status, and can poll until the batch reaches a terminal indexing state.
 
 `rag-anything-mcp` is a local workspace ingestion server built on RAGAnything and LightRAG. Its closest batch feature is `process_directory`, which scans a local folder and processes matching files into a local shared workspace with multimodal parsing and graph-backed querying.
 
@@ -14,7 +14,7 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 
 | Area | Calypso MCP Batch Uploads | `rag-anything-mcp` Directory Ingestion |
 | --- | --- | --- |
-| Main user-facing batch tool | `calypso-upload-knowledge-files-batch` | `process_directory` |
+| Main user-facing batch tool | `calypso-upload-files-batch` | `process_directory` |
 | Batch model | Explicit list of files that become one batch upload-session flow. | Local directory scan over matching file extensions. |
 | File input | Each item supports `contentBase64` or `filePath`. | Uses local `directory_path`; single-file flow uses local `file_path`. |
 | Remote execution fit | Strong. `contentBase64` works well for Smithery and remote MCP clients. | Limited. Requires MCP server access to the local filesystem path. |
@@ -38,7 +38,7 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 
 ### Calypso MCP Batch Workflow
 
-1. User calls `calypso-upload-knowledge-files-batch`.
+1. User calls `calypso-upload-files-batch`.
 2. User provides `items`, `batchIdempotencyKey`, and optional shared bucket defaults.
 3. Each item supplies either `contentBase64` or `filePath`.
 4. Calypso creates upload sessions and returns direct storage upload URLs.
@@ -49,7 +49,7 @@ In short: Calypso MCP is stronger for production/team knowledge operations; `rag
 
 ```mermaid
 flowchart LR
-  userCall["MCP Client"] --> calypsoTool["calypso-upload-knowledge-files-batch"]
+  userCall["MCP Client"] --> calypsoTool["calypso-upload-files-batch"]
   calypsoTool --> sessionApi["Calypso batch upload-session API"]
   sessionApi --> directStorage["Direct storage uploads"]
   directStorage --> finalize["Finalize batch session"]
@@ -118,7 +118,7 @@ Use `rag-anything-mcp` when the user needs local exploratory analysis: processin
 
 The best feature cross-pollination would be:
 
-- Add a Calypso MCP convenience helper that accepts a local directory, chunks it into 100-file batch requests, and reuses `calypso-upload-knowledge-files-batch` internally.
+- Add a Calypso MCP convenience helper that accepts a local directory, chunks it into 100-file batch requests, and reuses `calypso-upload-files-batch` internally.
 - Add explicit batch ids, per-file status, and idempotency semantics to `rag-anything-mcp` if it becomes a production-facing ingestion surface.
 
 ## Bottom Line

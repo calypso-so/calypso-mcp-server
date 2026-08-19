@@ -1,10 +1,9 @@
 import { z } from "zod";
 
 export const CALYPSO_RAG_AGENT = "calypso-rag-agent";
-export const CALYPSO_LIST_KNOWLEDGE_BUCKETS = "calypso-list-knowledge-buckets";
-export const CALYPSO_UPLOAD_KNOWLEDGE_FILE = "calypso-upload-knowledge-file";
-export const CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH =
-  "calypso-upload-knowledge-files-batch";
+export const CALYPSO_LIST_BUCKETS = "calypso-list-buckets";
+export const CALYPSO_UPLOAD_FILE = "calypso-upload-file";
+export const CALYPSO_UPLOAD_FILES_BATCH = "calypso-upload-files-batch";
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
 const optionalString = z

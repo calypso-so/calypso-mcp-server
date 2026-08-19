@@ -207,9 +207,9 @@ Cmd + Q
 After restart, the MCP should appear in Claude with these tools available:
 
 - `calypso-rag-agent`
-- `calypso-list-knowledge-buckets`
-- `calypso-upload-knowledge-file`
-- `calypso-upload-knowledge-files-batch`
+- `calypso-list-buckets`
+- `calypso-upload-file`
+- `calypso-upload-files-batch`
 
 ### Optional: Save Claude Artifacts To Your Mac
 
@@ -324,16 +324,16 @@ Notes:
 - Optional `fileIds` are supported for retrieval-scoped questions. New uploads should use the durable knowledge upload tools and wait for indexing before asking.
 - Use `/new` as the prompt to reset the MCP conversation.
 
-### `calypso-list-knowledge-buckets`
-Lists knowledge buckets for the team tied to the configured Calypso API key.
+### `calypso-list-buckets`
+Lists buckets for the team tied to the configured Calypso API key.
 
 Notes:
 - Uses `GET /v1/knowledge/buckets`.
 - Does not accept `team_id`; Calypso derives team scope from the API key.
 - Returns bucket ids, slugs, names, status, member counts, source counts, and bucket-store readiness.
 - Defaults to active buckets only. Pass `includeArchived: true` when you need archived buckets for audits or cleanup.
-- Use this before `calypso-upload-knowledge-file` or `calypso-upload-knowledge-files-batch` when you need to choose a destination bucket.
-- `calypso://rag-agent-models` answers which buckets are bound to each RAG variant. `calypso-list-knowledge-buckets` answers which buckets exist for the API key's team.
+- Use this before `calypso-upload-file` or `calypso-upload-files-batch` when you need to choose a destination bucket.
+- `calypso://rag-agent-models` answers which buckets are bound to each RAG variant. `calypso-list-buckets` answers which buckets exist for the API key's team.
 
 Example:
 
@@ -343,13 +343,13 @@ Example:
 }
 ```
 
-### `calypso-upload-knowledge-file`
+### `calypso-upload-file`
 Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.
 
 Notes:
 - Uses `POST /v1/knowledge/files/upload-session`, uploads bytes directly to storage, then finalizes with `POST /v1/knowledge/files/upload-session/{session_id}/finalize`.
 - Uploads use JSON session requests plus signed binary `PUT`s, not multipart form uploads.
-- Returns knowledge-file and task metadata, not a chat attachment `file_id`.
+- Returns file and task metadata, not a chat attachment `file_id`.
 - Requires one bucket destination via `bucketIds`, `bucketSlugs`, or `bucket`.
 - Use `filePath` for local Claude Desktop/Cursor MCP installs where the server can read the path. Use `contentBase64` for hosted or remote MCP clients that cannot read local paths.
 - If an agent sees a path like `/mnt/user-data/uploads/file.pdf`, it should not send that as `filePath`; it should send the file bytes as `contentBase64`.
@@ -371,7 +371,7 @@ Example:
 }
 ```
 
-### `calypso-upload-knowledge-files-batch`
+### `calypso-upload-files-batch`
 Uploads 1 to 100 files into the durable knowledge store in one request.
 
 Notes:
@@ -411,19 +411,19 @@ Read-only server metadata, including package version, API base URL, transport, a
 ### `calypso://rag-agent-models`
 Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
 
-### `calypso://knowledge-buckets`
+### `calypso://buckets`
 Read-only runtime list of knowledge buckets for the team tied to the configured API key. Use it to inspect bucket ids/slugs and bucket-store readiness before uploads.
 
 ### `calypso://workflows`
-A compact guide to the supported RAG and knowledge-file workflows.
+A compact guide to the supported RAG and file-upload workflows.
 
 ### `calypso://security`
 Operational security notes for API keys, local file reads, uploads, and logging.
 
 ## Available prompts
 
-- **`calypso-knowledge-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
-- **`calypso-knowledge-ingestion`**: prepare a durable knowledge-store upload and follow-up query
+- **`calypso-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
+- **`calypso-ingestion`**: prepare a durable knowledge-store upload and follow-up query
 - **`calypso-reset-conversation`**: start a clean RAG thread with `/new`
 
 ## Common workflows (copy/paste)
@@ -449,9 +449,9 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ### Knowledge-store file flow
 
 - **Discover buckets**:
-  - Call `calypso-list-knowledge-buckets` or read `calypso://knowledge-buckets` before choosing a destination
+  - Call `calypso-list-buckets` or read `calypso://buckets` before choosing a destination
 - **Upload durable knowledge**:
-  - Call `calypso-upload-knowledge-file` with the file payload and optional `title`, `tags`, or `metadata`
+  - Call `calypso-upload-file` with the file payload and optional `title`, `tags`, or `metadata`
   - Prefer `filePath` for local Claude Desktop/Cursor MCP installs; use `contentBase64` for hosted or remote MCP clients that cannot read local paths
 - **Route knowledge into buckets**:
   - Use `bucket: "support-handbook"` for one destination, `bucketSlugs` for multiple slug-based destinations, or `bucketIds` when you already have stable bucket ids
@@ -463,7 +463,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ### Knowledge-store batch flow
 
 - **Upload many durable files**:
-  - Call `calypso-upload-knowledge-files-batch` with `items`, `batchIdempotencyKey`, and `filePath` per item for local MCP installs; use `contentBase64` per item for hosted or remote MCP clients
+  - Call `calypso-upload-files-batch` with `items`, `batchIdempotencyKey`, and `filePath` per item for local MCP installs; use `contentBase64` per item for hosted or remote MCP clients
 - **Route the batch into buckets**:
   - Put shared `bucket`, `bucketSlugs`, `bucketIds`, or `createMissingBuckets` on the tool call, then override per item only when needed
 - **Wait for query readiness**:
