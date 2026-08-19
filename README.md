@@ -343,6 +343,62 @@ Example:
 }
 ```
 
+### `calypso-get-file`
+Fetches one knowledge file's metadata and indexing status by file id.
+
+Notes:
+- Uses `GET /v1/knowledge/files/{file_id}`.
+- Resolves the opaque `fileIds` from `calypso-list-buckets` into filename, mime type, size, indexing status, and per-bucket sync state.
+- Pass `verify: true` to cross-check against the provider (`?verify=gemini`) — slower, but authoritative when a status looks stale.
+
+Example:
+
+```json
+{
+  "fileId": "file_123",
+  "verify": true
+}
+```
+
+### `calypso-create-bucket`
+Creates an empty bucket for the create-then-fill workflow.
+
+Notes:
+- Uses `POST /v1/knowledge/buckets` (requires a backend with this endpoint deployed and the `knowledge:bucket:create` capability on the API key).
+- The server normalizes the slug; collisions return a typed `bucket_slug_exists` error.
+- `idempotencyKey` replays return the existing bucket instead of erroring.
+- Uploads can still create buckets implicitly via `bucketSlugs` + `createMissingBuckets`; this tool exists for creating the destination first.
+
+Example:
+
+```json
+{
+  "name": "Product docs",
+  "slug": "product-docs",
+  "idempotencyKey": "create-product-docs-1"
+}
+```
+
+### `calypso-create-agent`
+Creates a RAG agent variant bound to one or more buckets.
+
+Notes:
+- Uses `POST /v1/rag-agent/agents` (requires a backend with this endpoint deployed and the `rag:agent:create` capability on the API key).
+- The success payload leads with `model` — pass it straight to `calypso-rag-agent`.
+- Bucket bindings are validated server-side: unknown or archived buckets return `bucket_not_found`; agent id collisions return `agent_id_exists`; the plan's agent cap returns `agent_limit_reached`.
+- Creating an agent refreshes the model catalog and emits MCP `tools/list_changed` + `resources/list_changed` notifications, so the new variant is usable without reconnecting.
+
+Example:
+
+```json
+{
+  "agentId": "support",
+  "name": "Support agent",
+  "bucketSlugs": ["product-docs"],
+  "idempotencyKey": "create-support-agent-1"
+}
+```
+
 ### `calypso-upload-file`
 Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.
 

@@ -13,6 +13,9 @@ const requiredTools = {
   "calypso-list-buckets": ["includeArchived"],
   "calypso-upload-file": ["filename", "mimeType", "bucket"],
   "calypso-upload-files-batch": ["items", "batchIdempotencyKey", "bucket"],
+  "calypso-get-file": ["fileId", "verify"],
+  "calypso-create-bucket": ["name", "slug", "idempotencyKey"],
+  "calypso-create-agent": ["bucketIds", "bucketSlugs", "idempotencyKey"],
 };
 
 const requiredResources = [
