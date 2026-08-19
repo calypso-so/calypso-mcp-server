@@ -10,9 +10,9 @@ const serverPath = path.join(repoRoot, "dist", "index.js");
 
 const requiredTools = {
   "calypso-rag-agent": ["prompt", "model"],
-  "calypso-list-knowledge-buckets": ["includeArchived"],
-  "calypso-upload-knowledge-file": ["filename", "mimeType", "bucket"],
-  "calypso-upload-knowledge-files-batch": [
+  "calypso-list-buckets": ["includeArchived"],
+  "calypso-upload-file": ["filename", "mimeType", "bucket"],
+  "calypso-upload-files-batch": [
     "items",
     "batchIdempotencyKey",
     "bucket",
@@ -22,7 +22,7 @@ const requiredTools = {
 const requiredResources = [
   "calypso://server-info",
   "calypso://rag-agent-models",
-  "calypso://knowledge-buckets",
+  "calypso://buckets",
   "calypso://workflows",
   "calypso://security",
 ];

@@ -2,6 +2,19 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 2.0.0 - 2026-08-19
+
+### Breaking
+
+- Tool names drop the word "knowledge", matching the platform's buckets-first naming:
+  - `calypso-list-knowledge-buckets` -> `calypso-list-buckets`
+  - `calypso-upload-knowledge-file` -> `calypso-upload-file`
+  - `calypso-upload-knowledge-files-batch` -> `calypso-upload-files-batch`
+  - `calypso-rag-agent` is unchanged.
+- The buckets resource moved with them: `calypso://knowledge-buckets` -> `calypso://buckets`.
+- Update any saved MCP client configurations, prompts, or workflows that reference
+  the old tool names; there are no aliases.
+
 ## Unreleased
 
 ### Added
