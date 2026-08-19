@@ -2,6 +2,36 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 2.1.0 - 2026-08-19
+
+### Added
+
+- `calypso-get-file` — resolve `fileIds` into filename, mime type, size, and
+  indexing status, with optional provider ground-truth verification
+  (`verify=true` -> `?verify=gemini`).
+- `calypso-create-bucket` — create an empty bucket (create-then-fill workflow);
+  requires the backend's `POST /v1/knowledge/buckets` and the
+  `knowledge:bucket:create` capability.
+- `calypso-create-agent` — create a RAG agent variant bound to buckets; the
+  response leads with the ready-to-use `model` handle. Requires the backend's
+  `POST /v1/rag-agent/agents` and the `rag:agent:create` capability; the plan's
+  agent cap surfaces as `agent_limit_reached`.
+- Tool annotations on every tool (`readOnlyHint`, `destructiveHint`,
+  `idempotentHint`, `openWorldHint`) and `structuredContent` + `outputSchema`
+  on the create tools.
+- A "Provision a new agent end to end" workflow in `calypso://workflows`.
+
+### Changed
+
+- The model catalog is no longer a startup snapshot: `calypso://rag-agent-models`
+  re-runs discovery on every read, and successful creates refresh the catalog and
+  emit `tools/list_changed` + `resources/list_changed` notifications.
+- The variant list is no longer baked into the `calypso-rag-agent` tool
+  description (clients cache descriptions); the resource is the authoritative,
+  refreshable list. Only the default model remains inline.
+- `@modelcontextprotocol/sdk` upgraded to 1.30 (required for `registerTool`
+  annotations, output schemas, and list-changed notifications).
+
 ## 2.0.0 - 2026-08-19
 
 ### Breaking

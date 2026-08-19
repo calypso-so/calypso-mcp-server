@@ -4,6 +4,9 @@ export const CALYPSO_RAG_AGENT = "calypso-rag-agent";
 export const CALYPSO_LIST_BUCKETS = "calypso-list-buckets";
 export const CALYPSO_UPLOAD_FILE = "calypso-upload-file";
 export const CALYPSO_UPLOAD_FILES_BATCH = "calypso-upload-files-batch";
+export const CALYPSO_GET_FILE = "calypso-get-file";
+export const CALYPSO_CREATE_BUCKET = "calypso-create-bucket";
+export const CALYPSO_CREATE_AGENT = "calypso-create-agent";
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
 const optionalString = z

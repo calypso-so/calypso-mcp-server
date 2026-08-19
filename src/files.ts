@@ -282,13 +282,16 @@ function formatApiError(status: number, body: unknown): string {
   return `Request failed with status ${status}`;
 }
 
-async function requestJson<T>(
+export async function requestJson<T>(
   config: CalypsoRuntimeConfig,
   relativePath: string,
   init: RequestInit & { headers?: HeadersInit },
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${requireApiKey(config)}`);
+  if (typeof init.body === "string" && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const response = await fetch(buildApiUrl(config, relativePath), {
     ...init,
@@ -558,10 +561,12 @@ function describeBatchQueuedTimeout(
 export async function getKnowledgeFile(
   config: CalypsoRuntimeConfig,
   fileId: string,
+  options: { verify?: boolean } = {},
 ): Promise<KnowledgeFileObject> {
+  const query = options.verify ? "?verify=gemini" : "";
   return requestJson<KnowledgeFileObject>(
     config,
-    `/knowledge/files/${encodeURIComponent(fileId)}`,
+    `/knowledge/files/${encodeURIComponent(fileId)}${query}`,
     {
       method: "GET",
     },

@@ -278,6 +278,41 @@ export function normalizeKnowledgeBucketList(
   };
 }
 
+export type CreateKnowledgeBucketInput = {
+  name: string;
+  slug?: string;
+  description?: string;
+  idempotencyKey?: string;
+};
+
+export async function createKnowledgeBucket(
+  config: CalypsoRuntimeConfig,
+  input: CreateKnowledgeBucketInput,
+): Promise<Record<string, unknown>> {
+  const apiKey = requireApiKey(config);
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (input.idempotencyKey) {
+    headers["Idempotency-Key"] = input.idempotencyKey;
+  }
+  const response = await fetch(buildApiUrl(config, "/knowledge/buckets"), {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      name: input.name,
+      ...(input.slug ? { slug: input.slug } : {}),
+      ...(input.description ? { description: input.description } : {}),
+    }),
+  });
+  const body = await parseResponseBody(response);
+  if (!response.ok) {
+    throw new Error(formatApiError(response.status, body));
+  }
+  return (body ?? {}) as Record<string, unknown>;
+}
+
 export async function listKnowledgeBuckets(
   config: CalypsoRuntimeConfig,
   options: ListKnowledgeBucketsOptions = {},
