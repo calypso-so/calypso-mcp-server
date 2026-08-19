@@ -594,10 +594,7 @@ export function createCalypsoMcpServer(options: {
           ],
         };
       } catch (error) {
-        console.error(
-          `Error calling ${CALYPSO_LIST_BUCKETS}:`,
-          error,
-        );
+        console.error(`Error calling ${CALYPSO_LIST_BUCKETS}:`, error);
         await logEvent("error", "Calypso knowledge bucket listing failed.", {
           tool: CALYPSO_LIST_BUCKETS,
           error: error instanceof Error ? error.message : String(error),
@@ -953,10 +950,7 @@ export function createCalypsoMcpServer(options: {
           ],
         };
       } catch (error) {
-        console.error(
-          `Error calling ${CALYPSO_UPLOAD_FILES_BATCH}:`,
-          error,
-        );
+        console.error(`Error calling ${CALYPSO_UPLOAD_FILES_BATCH}:`, error);
         await logEvent("error", "Calypso knowledge batch upload failed.", {
           tool: CALYPSO_UPLOAD_FILES_BATCH,
           itemCount: items?.length || 0,

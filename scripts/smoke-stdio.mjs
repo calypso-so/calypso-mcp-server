@@ -12,11 +12,7 @@ const requiredTools = {
   "calypso-rag-agent": ["prompt", "model"],
   "calypso-list-buckets": ["includeArchived"],
   "calypso-upload-file": ["filename", "mimeType", "bucket"],
-  "calypso-upload-files-batch": [
-    "items",
-    "batchIdempotencyKey",
-    "bucket",
-  ],
+  "calypso-upload-files-batch": ["items", "batchIdempotencyKey", "bucket"],
 };
 
 const requiredResources = [

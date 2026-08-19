@@ -3,8 +3,7 @@ import { z } from "zod";
 export const CALYPSO_RAG_AGENT = "calypso-rag-agent";
 export const CALYPSO_LIST_BUCKETS = "calypso-list-buckets";
 export const CALYPSO_UPLOAD_FILE = "calypso-upload-file";
-export const CALYPSO_UPLOAD_FILES_BATCH =
-  "calypso-upload-files-batch";
+export const CALYPSO_UPLOAD_FILES_BATCH = "calypso-upload-files-batch";
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
 const optionalString = z
