@@ -28,8 +28,8 @@ const requiredResources = [
 ];
 
 const requiredPrompts = [
-  "calypso-knowledge-question",
-  "calypso-knowledge-ingestion",
+  "calypso-question",
+  "calypso-ingestion",
   "calypso-reset-conversation",
 ];
 

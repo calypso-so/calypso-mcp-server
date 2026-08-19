@@ -322,8 +322,8 @@ export function createCalypsoMcpServer(options: {
           "calypso://security",
         ],
         prompts: [
-          "calypso-knowledge-question",
-          "calypso-knowledge-ingestion",
+          "calypso-question",
+          "calypso-ingestion",
           "calypso-reset-conversation",
         ],
       }),
@@ -345,7 +345,7 @@ export function createCalypsoMcpServer(options: {
     "calypso://buckets",
     {
       description:
-        "Team-scoped Calypso knowledge buckets available to the configured API key.",
+        "Team-scoped Calypso buckets available to the configured API key.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -431,7 +431,7 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.prompt(
-    "calypso-knowledge-question",
+    "calypso-question",
     "Draft a grounded question for the Calypso RAG knowledge base.",
     {
       topic: z
@@ -465,7 +465,7 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.prompt(
-    "calypso-knowledge-ingestion",
+    "calypso-ingestion",
     "Prepare a durable knowledge-store upload and follow-up query.",
     {
       title: z

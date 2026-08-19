@@ -422,8 +422,8 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 
 ## Available prompts
 
-- **`calypso-knowledge-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
-- **`calypso-knowledge-ingestion`**: prepare a durable knowledge-store upload and follow-up query
+- **`calypso-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
+- **`calypso-ingestion`**: prepare a durable knowledge-store upload and follow-up query
 - **`calypso-reset-conversation`**: start a clean RAG thread with `/new`
 
 ## Common workflows (copy/paste)
