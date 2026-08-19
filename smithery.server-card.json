@@ -38,7 +38,7 @@
       }
     },
     {
-      "name": "calypso-list-knowledge-buckets",
+      "name": "calypso-list-buckets",
       "title": "Calypso List Knowledge Buckets",
       "description": "List all knowledge buckets for the team tied to the configured Calypso API key. Use this before uploads to discover bucket ids, slugs, names, member counts, and bucket-store readiness.",
       "inputSchema": {
@@ -62,7 +62,7 @@
       }
     },
     {
-      "name": "calypso-upload-knowledge-file",
+      "name": "calypso-upload-file",
       "title": "Calypso Upload Knowledge File",
       "description": "Upload one local or inline file into the durable bucket-backed knowledge store through an upload session. Choose exactly one file source: use filePath when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx; use contentBase64 for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. BucketIds, bucketSlugs, or bucket is required.",
       "inputSchema": {
@@ -145,7 +145,7 @@
       }
     },
     {
-      "name": "calypso-upload-knowledge-files-batch",
+      "name": "calypso-upload-files-batch",
       "title": "Calypso Upload Knowledge Files Batch",
       "description": "Upload 1 to 100 local or inline files into the durable knowledge store through batch upload sessions. Choose exactly one file source per item: use filePath when this MCP server runs locally and can read each path, including Claude Desktop or Cursor configs that launch this package with npx; use contentBase64 for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. A shared bucket destination is required unless every item has its own bucket destination.",
       "inputSchema": {

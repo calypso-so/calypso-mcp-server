@@ -9,10 +9,10 @@ import { z } from "zod";
 
 import { listKnowledgeBuckets } from "./buckets.js";
 import {
-  CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+  CALYPSO_LIST_BUCKETS,
   CALYPSO_RAG_AGENT,
-  CALYPSO_UPLOAD_KNOWLEDGE_FILE,
-  CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+  CALYPSO_UPLOAD_FILE,
+  CALYPSO_UPLOAD_FILES_BATCH,
   type CalypsoRuntimeConfig,
 } from "./config.js";
 import { uploadKnowledgeFile, uploadKnowledgeFilesBatch } from "./files.js";
@@ -310,20 +310,20 @@ export function createCalypsoMcpServer(options: {
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
         tools: [
           CALYPSO_RAG_AGENT,
-          CALYPSO_LIST_KNOWLEDGE_BUCKETS,
-          CALYPSO_UPLOAD_KNOWLEDGE_FILE,
-          CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          CALYPSO_LIST_BUCKETS,
+          CALYPSO_UPLOAD_FILE,
+          CALYPSO_UPLOAD_FILES_BATCH,
         ],
         resources: [
           "calypso://server-info",
           "calypso://rag-agent-models",
-          "calypso://knowledge-buckets",
+          "calypso://buckets",
           "calypso://workflows",
           "calypso://security",
         ],
         prompts: [
-          "calypso-knowledge-question",
-          "calypso-knowledge-ingestion",
+          "calypso-question",
+          "calypso-ingestion",
           "calypso-reset-conversation",
         ],
       }),
@@ -341,11 +341,11 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.resource(
-    "calypso-knowledge-buckets",
-    "calypso://knowledge-buckets",
+    "calypso-buckets",
+    "calypso://buckets",
     {
       description:
-        "Team-scoped Calypso knowledge buckets available to the configured API key.",
+        "Team-scoped Calypso buckets available to the configured API key.",
       mimeType: "application/json",
     },
     async (uri) => {
@@ -377,8 +377,8 @@ export function createCalypsoMcpServer(options: {
             ],
           },
           {
-            name: "Durable knowledge ingestion",
-            tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+            name: "Durable file ingestion",
+            tool: CALYPSO_UPLOAD_FILE,
             steps: [
               "Upload one source file with optional title, tags, metadata, idempotencyKey, and bucket fields.",
               "For local Claude Desktop or Cursor MCP installs, pass filePath for files on the same machine. Use contentBase64 for hosted or remote MCP clients that cannot read local paths.",
@@ -387,8 +387,8 @@ export function createCalypsoMcpServer(options: {
             ],
           },
           {
-            name: "Durable batch knowledge ingestion",
-            tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+            name: "Durable batch file ingestion",
+            tool: CALYPSO_UPLOAD_FILES_BATCH,
             steps: [
               "Upload 1 to 100 files with a required batchIdempotencyKey.",
               "For local Claude Desktop or Cursor MCP installs, pass filePath per item for files on the same machine. Use contentBase64 per item for hosted or remote MCP clients.",
@@ -431,7 +431,7 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.prompt(
-    "calypso-knowledge-question",
+    "calypso-question",
     "Draft a grounded question for the Calypso RAG knowledge base.",
     {
       topic: z
@@ -465,7 +465,7 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.prompt(
-    "calypso-knowledge-ingestion",
+    "calypso-ingestion",
     "Prepare a durable knowledge-store upload and follow-up query.",
     {
       title: z
@@ -489,7 +489,7 @@ export function createCalypsoMcpServer(options: {
           content: {
             type: "text" as const,
             text: [
-              "Use calypso-upload-knowledge-file for one source file, or calypso-upload-knowledge-files-batch for 2 to 100 files.",
+              "Use calypso-upload-file for one source file, or calypso-upload-files-batch for 2 to 100 files.",
               "Use filePath for local Claude Desktop/Cursor MCP installs when the file is on the same machine; use contentBase64 for hosted or remote MCP clients.",
               "Pass bucket, bucketSlugs, or bucketIds; durable knowledge uploads require a bucket destination.",
               "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
@@ -553,10 +553,10 @@ export function createCalypsoMcpServer(options: {
   }
 
   server.tool(
-    CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+    CALYPSO_LIST_BUCKETS,
     [
-      "[CALYPSO LIST KNOWLEDGE BUCKETS]",
-      "Lists knowledge buckets for the team tied to the configured Calypso API key.",
+      "[CALYPSO LIST BUCKETS]",
+      "Lists buckets for the team tied to the configured Calypso API key.",
       "",
       "Use this before uploads when you need bucket ids, slugs, names, member counts,",
       "or bucket-store readiness. This complements RAG model discovery: model discovery",
@@ -571,7 +571,7 @@ export function createCalypsoMcpServer(options: {
     async ({ includeArchived }: ListKnowledgeBucketsToolParams) => {
       try {
         await logEvent("info", "Listing Calypso knowledge buckets.", {
-          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          tool: CALYPSO_LIST_BUCKETS,
           includeArchived: includeArchived === true,
         });
 
@@ -580,7 +580,7 @@ export function createCalypsoMcpServer(options: {
         });
 
         await logEvent("info", "Calypso knowledge bucket listing completed.", {
-          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          tool: CALYPSO_LIST_BUCKETS,
           teamId: bucketList.team_id || null,
           bucketCount: bucketList.buckets.length,
         });
@@ -595,11 +595,11 @@ export function createCalypsoMcpServer(options: {
         };
       } catch (error) {
         console.error(
-          `Error calling ${CALYPSO_LIST_KNOWLEDGE_BUCKETS}:`,
+          `Error calling ${CALYPSO_LIST_BUCKETS}:`,
           error,
         );
         await logEvent("error", "Calypso knowledge bucket listing failed.", {
-          tool: CALYPSO_LIST_KNOWLEDGE_BUCKETS,
+          tool: CALYPSO_LIST_BUCKETS,
           error: error instanceof Error ? error.message : String(error),
         });
         return {
@@ -616,13 +616,13 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.tool(
-    CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+    CALYPSO_UPLOAD_FILE,
     [
-      "[CALYPSO UPLOAD KNOWLEDGE FILE]",
+      "[CALYPSO UPLOAD FILE]",
       "Uploads a file into the durable bucket-backed knowledge store and indexing pipeline.",
       "",
       "Use this when you want a file indexed into the broader knowledge corpus instead of",
-      "attached directly to a single RAG chat turn. This tool returns knowledge-file and task metadata.",
+      "attached directly to a single RAG chat turn. This tool returns file and task metadata.",
       "A bucket destination is required: pass bucketIds, bucketSlugs, or bucket.",
       "Choose exactly one file source. Use `filePath` when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx. Use `contentBase64` for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. Do not base64-encode local files just to use this tool.",
     ].join("\n"),
@@ -712,10 +712,10 @@ export function createCalypsoMcpServer(options: {
       try {
         requireKnowledgeBucketDestination(
           { bucketIds, bucketSlugs, bucket },
-          CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+          CALYPSO_UPLOAD_FILE,
         );
         await logEvent("info", "Uploading file to Calypso knowledge store.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+          tool: CALYPSO_UPLOAD_FILE,
           filename,
           mimeType,
           source: contentBase64 ? "contentBase64" : "filePath",
@@ -745,7 +745,7 @@ export function createCalypsoMcpServer(options: {
         });
 
         await logEvent("info", "Calypso knowledge-store upload completed.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+          tool: CALYPSO_UPLOAD_FILE,
           fileId: result.file.id,
           taskId: result.task?.id || null,
           status: result.file.status || result.task?.status || null,
@@ -760,9 +760,9 @@ export function createCalypsoMcpServer(options: {
           ],
         };
       } catch (error) {
-        console.error(`Error calling ${CALYPSO_UPLOAD_KNOWLEDGE_FILE}:`, error);
+        console.error(`Error calling ${CALYPSO_UPLOAD_FILE}:`, error);
         await logEvent("error", "Calypso knowledge-store upload failed.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILE,
+          tool: CALYPSO_UPLOAD_FILE,
           filename,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -780,9 +780,9 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.tool(
-    CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+    CALYPSO_UPLOAD_FILES_BATCH,
     [
-      "[CALYPSO UPLOAD KNOWLEDGE FILES BATCH]",
+      "[CALYPSO UPLOAD FILES BATCH]",
       "Uploads 1 to 100 files into the durable knowledge store and indexing queue in one request.",
       "",
       "Use this for bulk corpus ingestion. Shared bucket fields apply to every item unless an item",
@@ -916,7 +916,7 @@ export function createCalypsoMcpServer(options: {
           waitForBatchReady,
         });
         await logEvent("info", "Uploading knowledge file batch to Calypso.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          tool: CALYPSO_UPLOAD_FILES_BATCH,
           itemCount: items.length,
           sharedBucketCount:
             (bucketIds?.length || 0) +
@@ -936,7 +936,7 @@ export function createCalypsoMcpServer(options: {
         });
 
         await logEvent("info", "Calypso knowledge batch upload completed.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          tool: CALYPSO_UPLOAD_FILES_BATCH,
           batchId: result.id,
           status: result.status || null,
           accepted: result.accepted ?? null,
@@ -954,11 +954,11 @@ export function createCalypsoMcpServer(options: {
         };
       } catch (error) {
         console.error(
-          `Error calling ${CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH}:`,
+          `Error calling ${CALYPSO_UPLOAD_FILES_BATCH}:`,
           error,
         );
         await logEvent("error", "Calypso knowledge batch upload failed.", {
-          tool: CALYPSO_UPLOAD_KNOWLEDGE_FILES_BATCH,
+          tool: CALYPSO_UPLOAD_FILES_BATCH,
           itemCount: items?.length || 0,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -967,7 +967,7 @@ export function createCalypsoMcpServer(options: {
           content: [
             {
               type: "text" as const,
-              text: `Error: Failed to upload the knowledge-file batch. ${error}`,
+              text: `Error: Failed to upload the file batch. ${error}`,
             },
           ],
         };
