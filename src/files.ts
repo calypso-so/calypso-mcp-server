@@ -61,10 +61,11 @@ export type KnowledgeBatchObject = {
 };
 
 export type UploadKnowledgeFileParams = {
-  filename: string;
-  mimeType: string;
+  filename?: string;
+  mimeType?: string;
   contentBase64?: string;
   filePath?: string;
+  sourceUrl?: string;
   title?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -326,7 +327,9 @@ export async function resolveUploadContent(
     typeof input.filePath === "string" && input.filePath.trim().length > 0;
 
   if (hasContentBase64 === hasFilePath) {
-    throw new Error("Provide exactly one of `contentBase64` or `filePath`.");
+    throw new Error(
+      "Provide exactly one of `contentBase64`, `filePath`, or `sourceUrl`.",
+    );
   }
 
   const filename =
@@ -648,6 +651,83 @@ async function uploadBytesToSessionTarget(
   }
 }
 
+export type KnowledgeUrlImportResponse = {
+  object?: string;
+  knowledge_id?: string;
+  task_id?: string;
+  title?: string;
+  tags?: string[];
+  filename?: string;
+  mime_type?: string;
+  size_bytes?: number;
+  ingestion_status?: string;
+  bucket_assignment?: Record<string, unknown>;
+  request_id?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Import a public remote file by URL into the durable knowledge store.
+ *
+ * Maps to `POST /knowledge/files/import-url`: the server fetches the URL
+ * behind its SSRF policy (public hosts only, 25MB cap), stores the bytes, and
+ * queues indexing. Typed errors surface verbatim: `url_fetch_blocked`,
+ * `url_fetch_failed` (retryable), `file_too_large`, `bucket_required`,
+ * `bucket_not_found`. An `Idempotency-Key` replays the prior import.
+ */
+export async function importKnowledgeFileFromUrl(
+  config: CalypsoRuntimeConfig,
+  params: UploadKnowledgeFileParams & { sourceUrl: string },
+): Promise<KnowledgeUploadResult> {
+  if (!hasBucketDestination(params)) {
+    throw new Error(
+      "Knowledge URL imports require bucketIds, bucketSlugs, or bucket.",
+    );
+  }
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (params.idempotencyKey?.trim()) {
+    headers.set("Idempotency-Key", params.idempotencyKey.trim());
+  }
+
+  const body: Record<string, unknown> = { url: params.sourceUrl.trim() };
+  if (params.title?.trim()) body.title = params.title.trim();
+  const tags = compactStringArray(params.tags);
+  // The import endpoint takes tags as a comma-separated string (tags_raw).
+  if (tags) body.tags = tags.join(",");
+  applyBucketFields(body, params);
+
+  const imported = await requestJson<KnowledgeUrlImportResponse>(
+    config,
+    "/knowledge/files/import-url",
+    { method: "POST", headers, body: JSON.stringify(body) },
+  );
+
+  const fileId = String(imported.knowledge_id || "");
+  const taskId = imported.task_id ? String(imported.task_id) : null;
+  const file: KnowledgeFileObject = {
+    id: fileId,
+    object: "knowledge_file",
+    status: imported.ingestion_status,
+    title: imported.title,
+    filename: imported.filename,
+    content_type: imported.mime_type,
+    size_bytes: imported.size_bytes,
+    request_id: imported.request_id,
+    ...(imported.bucket_assignment
+      ? { bucket_assignment: imported.bucket_assignment }
+      : {}),
+  };
+  const initialResult: KnowledgeUploadResult = {
+    file,
+    task: taskId ? { id: taskId, status: imported.ingestion_status } : null,
+  };
+  if (params.waitForIndexing !== true || !fileId) {
+    return initialResult;
+  }
+  return waitForKnowledgeFileIndexed(config, fileId, taskId);
+}
+
 export async function uploadKnowledgeFile(
   config: CalypsoRuntimeConfig,
   params: UploadKnowledgeFileParams,
@@ -656,6 +736,19 @@ export async function uploadKnowledgeFile(
     throw new Error(
       "Knowledge file uploads require bucketIds, bucketSlugs, or bucket.",
     );
+  }
+  const hasSourceUrl =
+    typeof params.sourceUrl === "string" && params.sourceUrl.trim().length > 0;
+  if (hasSourceUrl) {
+    if (params.contentBase64?.trim() || params.filePath?.trim()) {
+      throw new Error(
+        "Provide exactly one of `contentBase64`, `filePath`, or `sourceUrl`.",
+      );
+    }
+    return importKnowledgeFileFromUrl(config, {
+      ...params,
+      sourceUrl: String(params.sourceUrl),
+    });
   }
   const content = await resolveUploadContent(params);
   const headers = new Headers();
