@@ -10,6 +10,7 @@ import { z } from "zod";
 import { createRagAgent } from "./agents.js";
 import { createKnowledgeBucket, listKnowledgeBuckets } from "./buckets.js";
 import {
+  CALYPSO_ADD_WEBSITE,
   CALYPSO_CREATE_AGENT,
   CALYPSO_CREATE_BUCKET,
   CALYPSO_GET_FILE,
@@ -29,6 +30,7 @@ import {
   loadRagModelCatalog,
   modelIdsFromCatalog,
 } from "./models.js";
+import { addKnowledgeWebsite } from "./websites.js";
 
 type RagPromptParams = {
   prompt: string;
@@ -37,9 +39,10 @@ type RagPromptParams = {
 };
 
 type UploadKnowledgeFileToolParams = {
-  filename: string;
-  mimeType: string;
+  filename?: string;
+  mimeType?: string;
   filePath?: string;
+  sourceUrl?: string;
   contentBase64?: string;
   title?: string;
   tags?: string[];
@@ -918,6 +921,127 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.registerTool(
+    CALYPSO_ADD_WEBSITE,
+    {
+      description: [
+        "[CALYPSO ADD WEBSITE]",
+        "Ingests a website URL as bucket-scoped knowledge.",
+        "",
+        "One shot: the Calypso backend crawls the URL, generates the title,",
+        "summary, and tags, persists the website as knowledge, and assigns it",
+        "to the given buckets in the same call. The normalized URL is the",
+        "create identity per team: a matching Idempotency-Key replays the",
+        "existing website, and a collision without one is a typed",
+        "`website_url_exists` conflict. Requires the",
+        "`knowledge:website:create` capability (explicit-only) and a backend",
+        "with POST /v1/knowledge/websites deployed.",
+      ].join("\n"),
+      inputSchema: {
+        url: z
+          .string()
+          .describe(
+            "Website URL to ingest. Normalized server-side; https:// is assumed when the scheme is missing.",
+          ),
+        title: z
+          .string()
+          .optional()
+          .describe("Optional title override for the generated analysis."),
+        tagsHint: z
+          .string()
+          .optional()
+          .describe("Optional comma-separated hint for generated tags."),
+        preferredLanguage: z
+          .string()
+          .optional()
+          .describe(
+            "Preferred language for the generated title/summary/tags (e.g. 'en', 'es').",
+          ),
+        bucketIds: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Bucket ids to assign the website to. Required unless bucketSlugs or bucket is provided.",
+          ),
+        bucketSlugs: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Bucket slugs to assign the website to. Required unless bucketIds or bucket is provided.",
+          ),
+        bucket: z
+          .string()
+          .optional()
+          .describe(
+            "Convenience single bucket slug. Required unless bucketIds or bucketSlugs is provided.",
+          ),
+        createMissingBuckets: z
+          .boolean()
+          .optional()
+          .describe("If true, create missing bucket slugs before assignment."),
+        idempotencyKey: z
+          .string()
+          .optional()
+          .describe(
+            "Optional Idempotency-Key; replays return the existing website.",
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (input: {
+      url: string;
+      title?: string;
+      tagsHint?: string;
+      preferredLanguage?: string;
+      bucketIds?: string[];
+      bucketSlugs?: string[];
+      bucket?: string;
+      createMissingBuckets?: boolean;
+      idempotencyKey?: string;
+    }) => {
+      try {
+        await logEvent("info", "Ingesting website into Calypso knowledge.", {
+          tool: CALYPSO_ADD_WEBSITE,
+          url: input.url,
+          bucketCount:
+            (input.bucketIds?.length || 0) +
+            (input.bucketSlugs?.length || 0) +
+            (input.bucket ? 1 : 0),
+        });
+        const website = await addKnowledgeWebsite(config, input);
+        await logEvent("notice", "Calypso website knowledge created.", {
+          tool: CALYPSO_ADD_WEBSITE,
+          knowledgeId: website.knowledge_id || null,
+          status: website.ingestion_status || null,
+        });
+        return {
+          content: [{ type: "text" as const, text: formatJson(website) }],
+        };
+      } catch (error) {
+        console.error(`Error calling ${CALYPSO_ADD_WEBSITE}:`, error);
+        await logEvent("error", "Calypso website ingestion failed.", {
+          tool: CALYPSO_ADD_WEBSITE,
+          url: input.url,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Failed to ingest the website into Calypso knowledge. ${error}`,
+            },
+          ],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
     CALYPSO_UPLOAD_FILE,
     {
       description: [
@@ -927,15 +1051,27 @@ export function createCalypsoMcpServer(options: {
         "Use this when you want a file indexed into the broader knowledge corpus instead of",
         "attached directly to a single RAG chat turn. This tool returns file and task metadata.",
         "A bucket destination is required: pass bucketIds, bucketSlugs, or bucket.",
-        "Choose exactly one file source. Use `filePath` when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx. Use `contentBase64` for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. Do not base64-encode local files just to use this tool.",
+        "Choose exactly one file source. Use `filePath` when this MCP server runs locally and can read the path, including Claude Desktop or Cursor configs that launch this package with npx. Use `contentBase64` for hosted or remote MCP clients, browser uploads, generated in-memory content, or remote sandbox files that this MCP process cannot read. Use `sourceUrl` for a public http(s) file URL — the Calypso backend fetches it directly (public hosts only, 25MB cap), so the bytes never pass through this MCP process; filename and content type are derived from the remote response. Do not base64-encode local files just to use this tool.",
       ].join("\n"),
       inputSchema: {
         filename: z
           .string()
-          .describe("Display filename for the uploaded knowledge file."),
+          .optional()
+          .describe(
+            "Display filename for the uploaded knowledge file. Required for filePath and contentBase64 sources; derived server-side for sourceUrl.",
+          ),
         mimeType: z
           .string()
-          .describe("Content type for the uploaded knowledge file."),
+          .optional()
+          .describe(
+            "Content type for the uploaded knowledge file. Required for filePath and contentBase64 sources; derived server-side for sourceUrl.",
+          ),
+        sourceUrl: z
+          .string()
+          .optional()
+          .describe(
+            "Public http(s) URL of a file to import. The backend fetches it behind its SSRF policy (public hosts only, 25MB cap) and queues indexing. Typed errors: url_fetch_blocked, url_fetch_failed (retryable), file_too_large.",
+          ),
         filePath: z
           .string()
           .optional()
@@ -1009,6 +1145,7 @@ export function createCalypsoMcpServer(options: {
       mimeType,
       contentBase64,
       filePath,
+      sourceUrl,
       title,
       tags,
       metadata,
@@ -1028,7 +1165,11 @@ export function createCalypsoMcpServer(options: {
           tool: CALYPSO_UPLOAD_FILE,
           filename,
           mimeType,
-          source: contentBase64 ? "contentBase64" : "filePath",
+          source: sourceUrl
+            ? "sourceUrl"
+            : contentBase64
+              ? "contentBase64"
+              : "filePath",
           tagCount: tags?.length || 0,
           hasMetadata: Boolean(metadata && Object.keys(metadata).length > 0),
           bucketCount:
@@ -1043,6 +1184,7 @@ export function createCalypsoMcpServer(options: {
           mimeType,
           contentBase64,
           filePath,
+          sourceUrl,
           title,
           tags,
           metadata,
