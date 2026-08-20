@@ -16,6 +16,7 @@ import {
   CALYPSO_GET_FILE,
   CALYPSO_LIST_BUCKETS,
   CALYPSO_RAG_AGENT,
+  CALYPSO_SEARCH,
   CALYPSO_UPLOAD_FILE,
   CALYPSO_UPLOAD_FILES_BATCH,
   type CalypsoRuntimeConfig,
@@ -30,6 +31,7 @@ import {
   loadRagModelCatalog,
   modelIdsFromCatalog,
 } from "./models.js";
+import { searchKnowledge } from "./search.js";
 import { addKnowledgeWebsite } from "./websites.js";
 
 type RagPromptParams = {
@@ -348,6 +350,7 @@ export function createCalypsoMcpServer(options: {
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
         tools: [
           CALYPSO_RAG_AGENT,
+          CALYPSO_SEARCH,
           CALYPSO_LIST_BUCKETS,
           CALYPSO_GET_FILE,
           CALYPSO_UPLOAD_FILE,
@@ -611,6 +614,105 @@ export function createCalypsoMcpServer(options: {
     conversationStates.set(modelId, next);
     return next;
   }
+
+  server.registerTool(
+    CALYPSO_SEARCH,
+    {
+      description: [
+        "[CALYPSO SEARCH]",
+        "Retrieval-only search over the team's grounded knowledge: returns the",
+        "chunks and sources an agent answer would cite, without a synthesized",
+        "answer. Use this when the caller wants raw evidence to reason over.",
+        "",
+        "Scope defaults to the default RAG agent; pass `agent` for a named",
+        "variant (calypso-rag-agent:{agent_id}) or `buckets` (ids or slugs,",
+        "up to 5) to search specific buckets directly — not both.",
+      ].join("\n"),
+      inputSchema: {
+        query: z.string().min(1).describe("The search query."),
+        agent: z
+          .string()
+          .optional()
+          .describe(
+            "Agent model id whose retrieval scope to search " +
+              "(calypso-rag-agent or calypso-rag-agent:{agent_id}). " +
+              "Mutually exclusive with buckets.",
+          ),
+        buckets: z
+          .array(z.string())
+          .max(5)
+          .optional()
+          .describe(
+            "Bucket ids or slugs to search directly. Mutually exclusive with agent.",
+          ),
+        maxResults: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .optional()
+          .describe("Maximum results to return (1-20, default 10)."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async ({
+      query,
+      agent,
+      buckets,
+      maxResults,
+    }: {
+      query: string;
+      agent?: string;
+      buckets?: string[];
+      maxResults?: number;
+    }) => {
+      try {
+        await logEvent("info", "Running Calypso knowledge search.", {
+          tool: CALYPSO_SEARCH,
+          hasAgent: Boolean(agent),
+          bucketCount: buckets?.length ?? 0,
+        });
+        const result = await searchKnowledge(config, {
+          query,
+          agent,
+          buckets,
+          maxResults,
+        });
+        await logEvent("info", "Calypso knowledge search completed.", {
+          tool: CALYPSO_SEARCH,
+          strategy: result.strategy,
+          resultCount: result.results.length,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatJson(result),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`Error calling ${CALYPSO_SEARCH}:`, error);
+        await logEvent("error", "Calypso knowledge search failed.", {
+          tool: CALYPSO_SEARCH,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Calypso knowledge search failed. ${error}`,
+            },
+          ],
+        };
+      }
+    },
+  );
 
   server.registerTool(
     CALYPSO_LIST_BUCKETS,

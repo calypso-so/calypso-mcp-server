@@ -8,6 +8,7 @@ export const CALYPSO_GET_FILE = "calypso-get-file";
 export const CALYPSO_CREATE_BUCKET = "calypso-create-bucket";
 export const CALYPSO_CREATE_AGENT = "calypso-create-agent";
 export const CALYPSO_ADD_WEBSITE = "calypso-add-website";
+export const CALYPSO_SEARCH = "calypso-search";
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
 const optionalString = z
