@@ -743,6 +743,20 @@ export function createCalypsoMcpServer(options: {
     status: z.string().optional(),
   };
 
+  // structuredContent is validated strictly against the declared outputSchema
+  // (additionalProperties: false), but the API payload grows fields over time.
+  // Project the structured part onto the declared keys; the full payload stays
+  // in the text content.
+  const projectToSchema = (
+    payload: Record<string, unknown>,
+    schema: Record<string, unknown>,
+  ): Record<string, unknown> =>
+    Object.fromEntries(
+      Object.keys(schema)
+        .filter((field) => payload[field] !== undefined)
+        .map((field) => [field, payload[field]]),
+    );
+
   server.registerTool(
     CALYPSO_CREATE_BUCKET,
     {
@@ -798,7 +812,10 @@ export function createCalypsoMcpServer(options: {
         });
         await notifyCatalogChanged();
         return {
-          structuredContent: bucket as Record<string, unknown>,
+          structuredContent: projectToSchema(
+            bucket as Record<string, unknown>,
+            createdBucketOutput,
+          ),
           content: [{ type: "text" as const, text: formatJson(bucket) }],
         };
       } catch (error) {
@@ -898,7 +915,10 @@ export function createCalypsoMcpServer(options: {
         // session, then signal clients to drop their cached lists.
         await notifyCatalogChanged();
         return {
-          structuredContent: agent as Record<string, unknown>,
+          structuredContent: projectToSchema(
+            agent as Record<string, unknown>,
+            createdAgentOutput,
+          ),
           content: [{ type: "text" as const, text: formatJson(agent) }],
         };
       } catch (error) {
