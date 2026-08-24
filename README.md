@@ -4,7 +4,7 @@
 
 One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts, diagrams, and images **natively** with verifiable citations.
 
-[![smithery badge](https://smithery.ai/badge/multimodal-rag/calypso-mcp-server)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
+[![Smithery](https://img.shields.io/badge/Smithery-calypso--mcp--server-6f42c1)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/calypso-so/calypso-mcp-server)](https://archestra.ai/mcp-catalog/calypso-so__calypso-mcp-server)
 [![npm version](https://img.shields.io/npm/v/@calypsohq/multimodal-rag-mcp-server)](https://www.npmjs.com/package/@calypsohq/multimodal-rag-mcp-server)
 [![GitHub stars](https://img.shields.io/github/stars/calypso-so/calypso-mcp-server?style=social)](https://github.com/calypso-so/calypso-mcp-server)
