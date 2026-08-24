@@ -72,7 +72,7 @@ type UploadKnowledgeFilesBatchToolItemParams = {
 
 type UploadKnowledgeFilesBatchToolParams = {
   items: UploadKnowledgeFilesBatchToolItemParams[];
-  batchIdempotencyKey: string;
+  batchIdempotencyKey?: string;
   bucketIds?: string[];
   bucketSlugs?: string[];
   bucket?: string;
@@ -431,7 +431,7 @@ export function createCalypsoMcpServer(options: {
             name: "Durable batch file ingestion",
             tool: CALYPSO_UPLOAD_FILES_BATCH,
             steps: [
-              "Upload 1 to 100 files with a required batchIdempotencyKey.",
+              "Upload 1 to 100 files; batchIdempotencyKey is auto-generated when omitted.",
               "For local Claude Desktop or Cursor MCP installs, pass filePath per item for files on the same machine. Use contentBase64 per item for hosted or remote MCP clients.",
               "Use shared bucketIds, bucketSlugs, bucket, or createMissingBuckets defaults, with optional per-item overrides.",
               "Use waitForBatchReady when the next step depends on batch completion.",
@@ -1335,8 +1335,11 @@ export function createCalypsoMcpServer(options: {
           .describe("Knowledge files to upload in this batch."),
         batchIdempotencyKey: z
           .string()
+          .optional()
           .describe(
-            "Required idempotency key used to derive the durable batch id.",
+            "Idempotency key used to derive the durable batch id. " +
+              "Auto-generated when omitted; pass your own stable key to make " +
+              "a retried call replay the same batch instead of creating a new one.",
           ),
         bucketIds: z
           .array(z.string())
@@ -1386,9 +1389,14 @@ export function createCalypsoMcpServer(options: {
       waitForBatchReady,
     }: UploadKnowledgeFilesBatchToolParams) => {
       try {
+        // LLM callers rarely have a natural idempotency key at hand; generate
+        // one when omitted. Callers that want retry-replay semantics across
+        // separate tool calls supply their own stable key.
+        const resolvedBatchKey =
+          (batchIdempotencyKey || "").trim() || `mcp-batch-${randomUUID()}`;
         requireBatchBucketDestinations({
           items,
-          batchIdempotencyKey,
+          batchIdempotencyKey: resolvedBatchKey,
           bucketIds,
           bucketSlugs,
           bucket,
@@ -1407,7 +1415,7 @@ export function createCalypsoMcpServer(options: {
 
         const result = await uploadKnowledgeFilesBatch(config, {
           items,
-          batchIdempotencyKey,
+          batchIdempotencyKey: resolvedBatchKey,
           bucketIds,
           bucketSlugs,
           bucket,
