@@ -60,7 +60,7 @@ Calypso is built for teams that want the easiest hosted multimodal RAG MCP serve
 
 ## What you get
 
-- Production multimodal RAG agent with multi-turn memory
+- Production multimodal Calypso agent with multi-turn memory
 - Built-in upload tools for single files and batch knowledge uploads
 - Automatic discovery of your team's RAG variants and knowledge buckets
 - Verifiable citations with source references and retrieval metadata
@@ -71,7 +71,7 @@ Calypso is built for teams that want the easiest hosted multimodal RAG MCP serve
 Most company knowledge is not only text. The answer often lives across a setup screenshot, a PDF table, a product diagram, a help-center page, or a chart inside a report. Calypso packages that full knowledge surface into a single retrieval layer so agents can ask grounded questions without guessing from generic model memory.
 
 - **Search the formats users actually rely on**: documentation, PDFs, screenshots, charts, diagrams, product images, support articles, manuals, policies, FAQs, and reports.
-- **Ground answers before the model writes**: Gemini File Search retrieves relevant text and visual context first, then the RAG agent answers from that source material.
+- **Ground answers before the model writes**: Gemini File Search retrieves relevant text and visual context first, then the Calypso agent answers from that source material.
 - **Show the evidence trail**: responses can include source references, page-aware grounding, and retrieval metadata so people can verify before they trust.
 - **Scope retrieval with metadata**: use workspace, team, customer, language, file type, status, or other metadata to keep answers relevant without duplicating knowledge bases.
 - **Reuse the same knowledge layer everywhere**: connect Cursor, Claude Desktop, AI agents, n8n workflows, product UI, support flows, and website experiences to the same source-backed layer.
@@ -88,13 +88,13 @@ In practice, this means your agent can answer questions like:
 
 ## What this MCP does
 
-With `calypso-rag-agent` you can:
+With `calypso-agent` you can:
 
 - Ask grounded questions against the configured Calypso knowledge base
 - Select any discovered team RAG variant with the optional `model` argument
 - Continue a multi-turn conversation via the native `/v1/responses` conversation model
 - Reset the conversation context with `/new`
-- Use the same OpenAI-compatible Responses endpoint that serves `calypso-rag-agent`
+- Use the same OpenAI-compatible Responses endpoint that serves `calypso-agent`
 - Discover built-in resources and prompts for the supported Calypso workflows
 
 ## Requirements
@@ -206,7 +206,7 @@ Cmd + Q
 
 After restart, the MCP should appear in Claude with these tools available:
 
-- `calypso-rag-agent`
+- `calypso-agent`
 - `calypso-list-buckets`
 - `calypso-upload-file`
 - `calypso-upload-files-batch`
@@ -311,13 +311,13 @@ If a path starts with `/mnt/user-data/uploads`, `/mnt/data`, `/mnt/attachments`,
 
 ## Available tools
 
-### `calypso-rag-agent`
-Direct Calypso RAG agent access.
+### `calypso-agent`
+Direct Calypso agent access.
 
 Notes:
 - It does not auto-route to other personas or agents.
-- It automatically discovers the API key's available `calypso-rag-agent` variants at startup.
-- Use the optional `model` argument to choose a named variant such as `calypso-rag-agent:pricing`.
+- It automatically discovers the API key's available `calypso-agent` variants at startup.
+- Use the optional `model` argument to choose a named variant such as `calypso-agent:pricing`.
 - Each model variant keeps its own MCP conversation chain, so switching variants does not continue the wrong thread.
 - It uses `POST /v1/responses` instead of `POST /v1/chat/completions`.
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
@@ -380,11 +380,11 @@ Example:
 ```
 
 ### `calypso-create-agent`
-Creates a RAG agent variant bound to one or more buckets.
+Creates a Calypso agent variant bound to one or more buckets.
 
 Notes:
 - Uses `POST /v1/rag-agent/agents` (requires a backend with this endpoint deployed and the `rag:agent:create` capability on the API key).
-- The success payload leads with `model` — pass it straight to `calypso-rag-agent`.
+- The success payload leads with `model` — pass it straight to `calypso-agent`.
 - Bucket bindings are validated server-side: unknown or archived buckets return `bucket_not_found`; agent id collisions return `agent_id_exists`; the plan's agent cap returns `agent_limit_reached`.
 - Creating an agent refreshes the model catalog and emits MCP `tools/list_changed` + `resources/list_changed` notifications, so the new variant is usable without reconnecting.
 
@@ -465,7 +465,7 @@ Example:
 Read-only server metadata, including package version, API base URL, transport, authentication model, and exposed capabilities.
 
 ### `calypso://rag-agent-models`
-Read-only runtime catalog of team-scoped `calypso-rag-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-rag-agent`.
+Read-only runtime catalog of team-scoped `calypso-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-agent`.
 
 ### `calypso://buckets`
 Read-only runtime list of knowledge buckets for the team tied to the configured API key. Use it to inspect bucket ids/slugs and bucket-store readiness before uploads.
@@ -478,7 +478,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 
 ## Available prompts
 
-- **`calypso-question`**: draft a grounded knowledge-base question for `calypso-rag-agent`
+- **`calypso-question`**: draft a grounded knowledge-base question for `calypso-agent`
 - **`calypso-ingestion`**: prepare a durable knowledge-store upload and follow-up query
 - **`calypso-reset-conversation`**: start a clean RAG thread with `/new`
 

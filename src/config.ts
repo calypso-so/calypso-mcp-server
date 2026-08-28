@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-export const CALYPSO_RAG_AGENT = "calypso-rag-agent";
+// MCP tool name. Renamed from "calypso-rag-agent" in v2.4.0 to match the
+// canonical model family; clients discover tools dynamically, so the rename
+// reaches them on their next tools/list.
+export const CALYPSO_AGENT = "calypso-agent";
 export const CALYPSO_LIST_BUCKETS = "calypso-list-buckets";
 export const CALYPSO_UPLOAD_FILE = "calypso-upload-file";
 export const CALYPSO_UPLOAD_FILES_BATCH = "calypso-upload-files-batch";
@@ -9,6 +12,12 @@ export const CALYPSO_CREATE_BUCKET = "calypso-create-bucket";
 export const CALYPSO_CREATE_AGENT = "calypso-create-agent";
 export const CALYPSO_ADD_WEBSITE = "calypso-add-website";
 export const CALYPSO_SEARCH = "calypso-search";
+// Model ids are a different namespace from tool names — they only ever looked
+// alike by coincidence, and the 2026-08 rename pulled them apart. The API
+// accepts the legacy family indefinitely, so we normalize rather than reject.
+export const DEFAULT_AGENT_MODEL_ID = "calypso-agent";
+export const LEGACY_AGENT_MODEL_FAMILY = "calypso-rag-agent";
+
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
 const optionalString = z

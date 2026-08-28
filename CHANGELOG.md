@@ -2,6 +2,19 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 2.4.0
+
+- **Renamed the ask tool `calypso-rag-agent` -> `calypso-agent`**, matching the canonical
+  model family. MCP clients discover tools dynamically, so the new name reaches them on the
+  next `tools/list`; saved prompts naming the old tool should be updated.
+- The model catalog now takes its default from the discovery response instead of a hardcoded
+  constant, so it tracks the API rather than drifting behind a rename.
+- `calypso-rag-agent[:{agent_id}]` model ids passed by a caller are normalized to the
+  canonical family, so existing prompts keep resolving.
+- Tool descriptions, prompts, the model-discovery resource name, and error messages now say
+  "Calypso agent". The `calypso://rag-agent-models` resource URI is unchanged — it is a
+  published address.
+
 ## 2.3.1 - 2026-08-24
 
 ### Fixed

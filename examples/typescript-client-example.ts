@@ -25,10 +25,10 @@ async function main() {
       console.log(`- ${tool.name}: ${tool.description}`);
     }
 
-    // Example: Query the Calypso RAG agent directly
-    console.log("\nQuerying calypso-rag-agent...");
+    // Example: Query the Calypso agent directly
+    console.log("\nQuerying calypso-agent...");
     const routedResult = await client.callTool({
-      name: "calypso-rag-agent",
+      name: "calypso-agent",
       arguments: {
         prompt: "Summarize the current knowledge base guidance for campaign approval behavior.",
       },
@@ -38,9 +38,9 @@ async function main() {
     console.log((routedResult as any).content[0].text);
 
     // Example: Follow-up request in the same conversation
-    console.log("\nQuerying calypso-rag-agent again...");
+    console.log("\nQuerying calypso-agent again...");
     const followupResult = await client.callTool({
-      name: "calypso-rag-agent",
+      name: "calypso-agent",
       arguments: {
         prompt: "Now focus only on the retrieval path and list the main components involved.",
       },

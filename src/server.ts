@@ -11,15 +11,17 @@ import { createRagAgent } from "./agents.js";
 import { createKnowledgeBucket, listKnowledgeBuckets } from "./buckets.js";
 import {
   CALYPSO_ADD_WEBSITE,
+  CALYPSO_AGENT,
   CALYPSO_CREATE_AGENT,
   CALYPSO_CREATE_BUCKET,
   CALYPSO_GET_FILE,
   CALYPSO_LIST_BUCKETS,
-  CALYPSO_RAG_AGENT,
   CALYPSO_SEARCH,
   CALYPSO_UPLOAD_FILE,
   CALYPSO_UPLOAD_FILES_BATCH,
   type CalypsoRuntimeConfig,
+  DEFAULT_AGENT_MODEL_ID,
+  LEGACY_AGENT_MODEL_FAMILY,
 } from "./config.js";
 import {
   getKnowledgeFile,
@@ -223,10 +225,21 @@ export function createCalypsoMcpServer(options: {
   }
 
   function resolveRagModelId(value?: string): string {
-    const modelId = String(value || "").trim() || currentCatalog.defaultModel;
+    const requested = String(value || "").trim();
+    // The API accepts the legacy family indefinitely, so a saved prompt naming
+    // `calypso-rag-agent[:{id}]` must keep working even once discovery lists
+    // only canonical ids.
+    const normalized =
+      requested && !discoveredModelIdSet.has(requested)
+        ? requested.replace(
+            new RegExp(`^${LEGACY_AGENT_MODEL_FAMILY}(?=$|:)`),
+            DEFAULT_AGENT_MODEL_ID,
+          )
+        : requested;
+    const modelId = normalized || currentCatalog.defaultModel;
     if (!discoveredModelIdSet.has(modelId)) {
       throw new Error(
-        `Unknown Calypso RAG model \`${modelId}\`. See the calypso://rag-agent-models resource for the current list.`,
+        `Unknown Calypso agent model \`${modelId}\`. See the calypso://rag-agent-models resource for the current list.`,
       );
     }
     return modelId;
@@ -349,7 +362,7 @@ export function createCalypsoMcpServer(options: {
         transport: "stdio",
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
         tools: [
-          CALYPSO_RAG_AGENT,
+          CALYPSO_AGENT,
           CALYPSO_SEARCH,
           CALYPSO_LIST_BUCKETS,
           CALYPSO_GET_FILE,
@@ -374,11 +387,11 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.resource(
-    "calypso-rag-agent-models",
+    "calypso-agent-models",
     "calypso://rag-agent-models",
     {
       description:
-        "Team-scoped Calypso RAG agent model variants discovered from the configured API key.",
+        "Team-scoped Calypso agent model variants discovered from the configured API key.",
       mimeType: "application/json",
     },
     async (uri) => textResource(uri.toString(), await refreshModelCatalog()),
@@ -411,7 +424,7 @@ export function createCalypsoMcpServer(options: {
         workflows: [
           {
             name: "Knowledge retrieval",
-            tool: CALYPSO_RAG_AGENT,
+            tool: CALYPSO_AGENT,
             models: modelIdsFromCatalog(currentCatalog),
             steps: [
               "Ask a grounded question using the prompt argument.",
@@ -427,7 +440,7 @@ export function createCalypsoMcpServer(options: {
               "Upload one source file with optional title, tags, metadata, idempotencyKey, and bucket fields.",
               "For local Claude Desktop or Cursor MCP installs, pass filePath for files on the same machine. Use contentBase64 for hosted or remote MCP clients that cannot read local paths.",
               "Pass waitForIndexing when the next step depends on indexed content.",
-              "Query the knowledge base with calypso-rag-agent after indexing completes.",
+              "Query the knowledge base with calypso-agent after indexing completes.",
             ],
           },
           {
@@ -449,7 +462,7 @@ export function createCalypsoMcpServer(options: {
               "Upload source files into it with calypso-upload-file or calypso-upload-files-batch.",
               "Poll calypso-get-file (verify=true for provider ground truth) until files are indexed.",
               "Create the agent with calypso-create-agent bound to the bucket; the response's `model` is the usage handle.",
-              "Query it immediately with calypso-rag-agent using that model — the catalog refreshes on create.",
+              "Query it immediately with calypso-agent using that model — the catalog refreshes on create.",
             ],
           },
           {
@@ -514,7 +527,7 @@ export function createCalypsoMcpServer(options: {
           content: {
             type: "text" as const,
             text: [
-              "Use calypso-rag-agent to answer from the configured Calypso knowledge base.",
+              "Use calypso-agent to answer from the configured Calypso knowledge base.",
               "The current variant list lives in the calypso://rag-agent-models resource.",
               `Topic: ${topic || "Describe the topic or question here."}`,
               constraints
@@ -556,10 +569,10 @@ export function createCalypsoMcpServer(options: {
               "Use filePath for local Claude Desktop/Cursor MCP installs when the file is on the same machine; use contentBase64 for hosted or remote MCP clients.",
               "Pass bucket, bucketSlugs, or bucketIds; durable knowledge uploads require a bucket destination.",
               "Use waitForIndexing=true for one file or waitForBatchReady=true for batches when the next answer depends on fresh content.",
-              "Query with calypso-rag-agent after indexing; read calypso://rag-agent-models for the variant list.",
+              "Query with calypso-agent after indexing; read calypso://rag-agent-models for the variant list.",
               `Title: ${title || "Knowledge file title"}`,
               `Tags: ${tags || "optional, comma-separated tags"}`,
-              `After indexing, ask calypso-rag-agent: ${followUpQuestion || "Summarize the newly indexed knowledge."}`,
+              `After indexing, ask calypso-agent: ${followUpQuestion || "Summarize the newly indexed knowledge."}`,
             ].join("\n"),
           },
         },
@@ -577,7 +590,7 @@ export function createCalypsoMcpServer(options: {
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: "Call calypso-rag-agent with prompt `/new` before starting the next unrelated topic. Include a model when only one variant should reset.",
+            text: "Call calypso-agent with prompt `/new` before starting the next unrelated topic. Include a model when only one variant should reset.",
           },
         },
       ],
@@ -624,8 +637,8 @@ export function createCalypsoMcpServer(options: {
         "chunks and sources an agent answer would cite, without a synthesized",
         "answer. Use this when the caller wants raw evidence to reason over.",
         "",
-        "Scope defaults to the default RAG agent; pass `agent` for a named",
-        "variant (calypso-rag-agent:{agent_id}) or `buckets` (ids or slugs,",
+        "Scope defaults to the default Calypso agent; pass `agent` for a named",
+        "variant (calypso-agent:{agent_id}) or `buckets` (ids or slugs,",
         "up to 5) to search specific buckets directly — not both.",
       ].join("\n"),
       inputSchema: {
@@ -635,7 +648,7 @@ export function createCalypsoMcpServer(options: {
           .optional()
           .describe(
             "Agent model id whose retrieval scope to search " +
-              "(calypso-rag-agent or calypso-rag-agent:{agent_id}). " +
+              "(calypso-agent or calypso-agent:{agent_id}). " +
               "Mutually exclusive with buckets.",
           ),
         buckets: z
@@ -722,7 +735,7 @@ export function createCalypsoMcpServer(options: {
         "Lists buckets for the team tied to the configured Calypso API key.",
         "",
         "Use this before uploads when you need bucket ids, slugs, names, member counts,",
-        "or bucket-store readiness. This complements RAG model discovery: model discovery",
+        "or bucket-store readiness. This complements agent model discovery: model discovery",
         "shows which buckets are bound to each agent variant, while this tool lists all buckets for the API key team.",
       ].join("\n"),
       inputSchema: {
@@ -949,10 +962,10 @@ export function createCalypsoMcpServer(options: {
     {
       description: [
         "[CALYPSO CREATE AGENT]",
-        "Creates a RAG agent variant bound to one or more buckets.",
+        "Creates a Calypso agent variant bound to one or more buckets.",
         "",
         "The success payload leads with `model` — pass it straight to",
-        "calypso-rag-agent. Bucket bindings are validated server-side",
+        "calypso-agent. Bucket bindings are validated server-side",
         "(`bucket_not_found` for unknown or archived buckets), agent ids are",
         "slug-normalized (`agent_id_exists` on collision), and the plan's agent",
         "cap is enforced (`agent_limit_reached` when full). Requires the",
@@ -1009,7 +1022,7 @@ export function createCalypsoMcpServer(options: {
           );
         }
         const agent = await createRagAgent(config, input);
-        await logEvent("notice", "Calypso RAG agent created.", {
+        await logEvent("notice", "Calypso agent created.", {
           tool: CALYPSO_CREATE_AGENT,
           model: agent.model || null,
         });
@@ -1025,7 +1038,7 @@ export function createCalypsoMcpServer(options: {
         };
       } catch (error) {
         console.error(`Error calling ${CALYPSO_CREATE_AGENT}:`, error);
-        await logEvent("error", "Calypso RAG agent creation failed.", {
+        await logEvent("error", "Calypso agent creation failed.", {
           tool: CALYPSO_CREATE_AGENT,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -1034,7 +1047,7 @@ export function createCalypsoMcpServer(options: {
           content: [
             {
               type: "text" as const,
-              text: `Error: Failed to create the Calypso RAG agent. ${error}`,
+              text: `Error: Failed to create the Calypso agent. ${error}`,
             },
           ],
         };
@@ -1563,11 +1576,11 @@ export function createCalypsoMcpServer(options: {
   );
 
   server.registerTool(
-    CALYPSO_RAG_AGENT,
+    CALYPSO_AGENT,
     {
       description: [
         "[CALYPSO RAG AGENT]",
-        "Sends each prompt directly to the Calypso RAG agent using the full conversation context.",
+        "Sends each prompt directly to the Calypso agent using the full conversation context.",
         "",
         "Use this when you want Calypso knowledge retrieval and grounded answers from the RAG backend.",
         "Typical requests:",
@@ -1608,7 +1621,7 @@ export function createCalypsoMcpServer(options: {
           .string()
           .optional()
           .describe(
-            `Optional RAG model variant. Defaults to \`${currentCatalog.defaultModel}\`. Read the calypso://rag-agent-models resource for the current list.`,
+            `Optional Calypso agent model variant. Defaults to \`${currentCatalog.defaultModel}\`. Read the calypso://rag-agent-models resource for the current list.`,
           ),
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -1623,14 +1636,14 @@ export function createCalypsoMcpServer(options: {
           if (String(model || "").trim()) {
             const resetState = resetConversationState(selectedModel);
             await logEvent("notice", "Calypso RAG conversation reset.", {
-              tool: CALYPSO_RAG_AGENT,
+              tool: CALYPSO_AGENT,
               model: selectedModel,
               conversationId: resetState.conversationId,
             });
           } else {
             conversationStates.clear();
             await logEvent("notice", "Calypso RAG conversations reset.", {
-              tool: CALYPSO_RAG_AGENT,
+              tool: CALYPSO_AGENT,
               models: modelIdsFromCatalog(currentCatalog),
             });
           }
@@ -1644,8 +1657,8 @@ export function createCalypsoMcpServer(options: {
           };
         }
 
-        await logEvent("info", "Calling Calypso RAG agent.", {
-          tool: CALYPSO_RAG_AGENT,
+        await logEvent("info", "Calling Calypso agent.", {
+          tool: CALYPSO_AGENT,
           model: selectedModel,
           conversationId: conversationState.conversationId,
           fileCount: normalizedFileIds?.length || 0,
@@ -1700,8 +1713,8 @@ export function createCalypsoMcpServer(options: {
           });
         }
 
-        await logEvent("info", "Calypso RAG agent response completed.", {
-          tool: CALYPSO_RAG_AGENT,
+        await logEvent("info", "Calypso agent response completed.", {
+          tool: CALYPSO_AGENT,
           model: selectedModel,
           conversationId: conversationState.conversationId,
           responseId: result.responseId,
@@ -1717,9 +1730,9 @@ export function createCalypsoMcpServer(options: {
           ],
         };
       } catch (error) {
-        console.error(`Error calling ${CALYPSO_RAG_AGENT}:`, error);
-        await logEvent("error", "Calypso RAG agent call failed.", {
-          tool: CALYPSO_RAG_AGENT,
+        console.error(`Error calling ${CALYPSO_AGENT}:`, error);
+        await logEvent("error", "Calypso agent call failed.", {
+          tool: CALYPSO_AGENT,
           model: String(model || "").trim() || modelCatalog.defaultModel,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -1728,7 +1741,7 @@ export function createCalypsoMcpServer(options: {
           content: [
             {
               type: "text" as const,
-              text: `Error: Failed to process ${CALYPSO_RAG_AGENT} query. ${error}`,
+              text: `Error: Failed to process ${CALYPSO_AGENT} query. ${error}`,
             },
           ],
         };

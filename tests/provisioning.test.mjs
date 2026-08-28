@@ -61,7 +61,7 @@ test("createKnowledgeBucket surfaces typed backend errors verbatim", async () =>
 
 test("createRagAgent maps camelCase input to the API contract", async () => {
   const calls = stubFetch(201, {
-    model: "calypso-rag-agent:support",
+    model: "calypso-agent:support",
     agent_id: "support",
   });
   const agent = await createRagAgent(config, {
@@ -72,7 +72,7 @@ test("createRagAgent maps camelCase input to the API contract", async () => {
     instructions: "Answer from docs only.",
     idempotencyKey: "agent-support-1",
   });
-  assert.equal(agent.model, "calypso-rag-agent:support");
+  assert.equal(agent.model, "calypso-agent:support");
   assert.equal(calls.length, 1);
   assert.ok(calls[0].url.endsWith("/v1/rag-agent/agents"));
   const headers = new Headers(calls[0].init.headers);
@@ -88,7 +88,7 @@ test("createRagAgent maps camelCase input to the API contract", async () => {
 });
 
 test("createRagAgent omits empty optional fields from the payload", async () => {
-  const calls = stubFetch(201, { model: "calypso-rag-agent:x" });
+  const calls = stubFetch(201, { model: "calypso-agent:x" });
   await createRagAgent(config, { bucketIds: ["b1"] });
   assert.deepEqual(JSON.parse(calls[0].init.body), { bucket_ids: ["b1"] });
   const headers = new Headers(calls[0].init.headers);
