@@ -12,11 +12,30 @@ export const CALYPSO_CREATE_BUCKET = "calypso-create-bucket";
 export const CALYPSO_CREATE_AGENT = "calypso-create-agent";
 export const CALYPSO_ADD_WEBSITE = "calypso-add-website";
 export const CALYPSO_SEARCH = "calypso-search";
+
+/**
+ * Every tool this server registers, in the order clients see them.
+ *
+ * The calypso://server-info resource had its own hand-written copy of this list
+ * and had fallen out of step — calypso-add-website was registered but missing
+ * from it, so an agent introspecting the server never learned URL ingestion
+ * existed. One list, asserted against the registrations in tests/server-info.
+ */
+export const CALYPSO_TOOLS = [
+  CALYPSO_AGENT,
+  CALYPSO_SEARCH,
+  CALYPSO_LIST_BUCKETS,
+  CALYPSO_GET_FILE,
+  CALYPSO_UPLOAD_FILE,
+  CALYPSO_UPLOAD_FILES_BATCH,
+  CALYPSO_ADD_WEBSITE,
+  CALYPSO_CREATE_BUCKET,
+  CALYPSO_CREATE_AGENT,
+] as const;
+
 // Model ids are a different namespace from tool names — they only ever looked
-// alike by coincidence, and the 2026-08 rename pulled them apart. The API
-// accepts the legacy family indefinitely, so we normalize rather than reject.
+// alike by coincidence, and the 2026-08 rename pulled them apart.
 export const DEFAULT_AGENT_MODEL_ID = "calypso-agent";
-export const LEGACY_AGENT_MODEL_FAMILY = "calypso-rag-agent";
 
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 
