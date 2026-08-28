@@ -17,11 +17,10 @@ import {
   CALYPSO_GET_FILE,
   CALYPSO_LIST_BUCKETS,
   CALYPSO_SEARCH,
+  CALYPSO_TOOLS,
   CALYPSO_UPLOAD_FILE,
   CALYPSO_UPLOAD_FILES_BATCH,
   type CalypsoRuntimeConfig,
-  DEFAULT_AGENT_MODEL_ID,
-  LEGACY_AGENT_MODEL_FAMILY,
 } from "./config.js";
 import {
   getKnowledgeFile,
@@ -226,17 +225,10 @@ export function createCalypsoMcpServer(options: {
 
   function resolveRagModelId(value?: string): string {
     const requested = String(value || "").trim();
-    // The API accepts the legacy family indefinitely, so a saved prompt naming
-    // `calypso-rag-agent[:{id}]` must keep working even once discovery lists
-    // only canonical ids.
-    const normalized =
-      requested && !discoveredModelIdSet.has(requested)
-        ? requested.replace(
-            new RegExp(`^${LEGACY_AGENT_MODEL_FAMILY}(?=$|:)`),
-            DEFAULT_AGENT_MODEL_ID,
-          )
-        : requested;
-    const modelId = normalized || currentCatalog.defaultModel;
+    // Only ids that discovery actually lists are accepted. The legacy
+    // `calypso-rag-agent[:{id}]` family is no longer rewritten to the canonical
+    // one; an unknown id fails loudly below and names the resource to consult.
+    const modelId = requested || currentCatalog.defaultModel;
     if (!discoveredModelIdSet.has(modelId)) {
       throw new Error(
         `Unknown Calypso agent model \`${modelId}\`. See the calypso://rag-agent-models resource for the current list.`,
@@ -361,16 +353,7 @@ export function createCalypsoMcpServer(options: {
         ragModels: currentCatalog,
         transport: "stdio",
         authentication: "Calypso API key via CALYPSO_API_KEY or --api-key",
-        tools: [
-          CALYPSO_AGENT,
-          CALYPSO_SEARCH,
-          CALYPSO_LIST_BUCKETS,
-          CALYPSO_GET_FILE,
-          CALYPSO_UPLOAD_FILE,
-          CALYPSO_UPLOAD_FILES_BATCH,
-          CALYPSO_CREATE_BUCKET,
-          CALYPSO_CREATE_AGENT,
-        ],
+        tools: [...CALYPSO_TOOLS],
         resources: [
           "calypso://server-info",
           "calypso://rag-agent-models",

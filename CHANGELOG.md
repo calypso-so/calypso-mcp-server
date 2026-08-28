@@ -2,6 +2,43 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 3.0.0
+
+### Removed
+
+- **Legacy `calypso-rag-agent` model-id support.** `resolveRagModelId` rewrote the legacy
+  family onto the canonical one so saved prompts kept resolving; that normalization and
+  `LEGACY_AGENT_MODEL_FAMILY` are gone. An unrecognized id now fails with
+  `Unknown Calypso agent model`, which names `calypso://rag-agent-models` as the place to
+  find valid ids. **Breaking** for callers still passing `calypso-rag-agent[:{agent_id}]`.
+- The tool name `calypso-rag-agent`, removed in 2.4.0, is **not** being reinstated as an
+  alias. `calypso-agent` is the only name.
+
+### Fixed
+
+- **`calypso://server-info` was under-reporting the tool surface.** It kept a hand-written
+  copy of the tool list and had fallen out of step: `calypso-add-website` was registered but
+  missing from it, so an agent introspecting the server never learned URL ingestion existed.
+  The list now derives from `CALYPSO_TOOLS`, and `tests/server-info.test.mjs` asserts it
+  matches the tools actually registered.
+- `package-lock.json` had been left at 2.0.0, four minors behind, because nothing checked it.
+
+### Added
+
+- `scripts/check-versions.mjs`, verifying all five version fields and four identity fields
+  agree with `package.json`. Wired into `npm test`, so it runs in CI on every pull request
+  rather than only at release. `npm run version:sync` writes the version everywhere.
+- README documentation for `calypso-search` and `calypso-add-website`, both previously
+  shipped but undocumented, plus a version history and 3.0.0 upgrade notes.
+
+### Changed
+
+- README drops the competitor comparison table and the repeated "easiest" superlative in
+  favour of concrete capability claims, and names this server as a Calypso Context surface.
+- `server.mcpb` is no longer committed. It is build output, it had gone stale at 1.0.37
+  against a 2.4.0 release, and at 25 MB every rebuild added another permanent copy to git
+  history. Build it with `npm run build:mcpb` and attach it to a GitHub Release.
+
 ## 2.4.0
 
 - **Renamed the ask tool `calypso-rag-agent` -> `calypso-agent`**, matching the canonical
