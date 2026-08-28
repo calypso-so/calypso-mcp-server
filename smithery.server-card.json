@@ -6,9 +6,9 @@
   },
   "tools": [
     {
-      "name": "calypso-rag-agent",
+      "name": "calypso-agent",
       "title": "Calypso RAG Agent",
-      "description": "Query the Calypso RAG agent for grounded answers over the configured knowledge base. Use `/new` as the prompt to reset the current conversation and start a fresh thread.",
+      "description": "Query the Calypso agent for grounded answers over the configured knowledge base. Use `/new` as the prompt to reset the current conversation and start a fresh thread.",
       "inputSchema": {
         "type": "object",
         "properties": {

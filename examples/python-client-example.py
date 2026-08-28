@@ -26,10 +26,10 @@ async def main():
             for tool in tools.tools:
                 print(f"- {tool.name}: {tool.description}")
 
-            # Example: Query the Calypso RAG agent directly
-            print("\nQuerying calypso-rag-agent...")
+            # Example: Query the Calypso agent directly
+            print("\nQuerying calypso-agent...")
             market_result = await session.call_tool(
-                "calypso-rag-agent",
+                "calypso-agent",
                 arguments={
                     "prompt": "Summarize the current knowledge base guidance for campaign approval behavior."
                 }
@@ -38,9 +38,9 @@ async def main():
             print(market_result.content[0].text)
 
             # Example: Follow-up request in the same conversation
-            print("\nQuerying calypso-rag-agent again...")
+            print("\nQuerying calypso-agent again...")
             research_result = await session.call_tool(
-                "calypso-rag-agent",
+                "calypso-agent",
                 arguments={
                     "prompt": "Now focus only on the retrieval path and list the main components involved."
                 }

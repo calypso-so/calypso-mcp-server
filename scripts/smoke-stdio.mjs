@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const serverPath = path.join(repoRoot, "dist", "index.js");
 
 const requiredTools = {
-  "calypso-rag-agent": ["prompt", "model"],
+  "calypso-agent": ["prompt", "model"],
   "calypso-list-buckets": ["includeArchived"],
   "calypso-upload-file": ["filename", "mimeType", "bucket"],
   "calypso-upload-files-batch": ["items", "batchIdempotencyKey", "bucket"],

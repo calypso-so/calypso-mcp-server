@@ -1,4 +1,4 @@
-import { CALYPSO_RAG_AGENT, type CalypsoRuntimeConfig } from "./config.js";
+import { type CalypsoRuntimeConfig, DEFAULT_AGENT_MODEL_ID } from "./config.js";
 
 export type CalypsoRagModelDescriptor = {
   id: string;
@@ -40,8 +40,8 @@ export function fallbackRagModelCatalog(
   return {
     models: [
       {
-        id: CALYPSO_RAG_AGENT,
-        base_model: CALYPSO_RAG_AGENT,
+        id: DEFAULT_AGENT_MODEL_ID,
+        base_model: DEFAULT_AGENT_MODEL_ID,
         profile_id: null,
         source: "default_policy",
         enabled: true,
@@ -50,7 +50,7 @@ export function fallbackRagModelCatalog(
         missing_bucket_ids: [],
       },
     ],
-    defaultModel: CALYPSO_RAG_AGENT,
+    defaultModel: DEFAULT_AGENT_MODEL_ID,
     fetchedAt: null,
     source: "fallback",
     error:
@@ -172,10 +172,10 @@ function normalizeCatalog(
       return true;
     });
 
-  if (!models.some((model) => model.id === CALYPSO_RAG_AGENT)) {
+  if (!models.some((model) => model.id === DEFAULT_AGENT_MODEL_ID)) {
     models.unshift({
-      id: CALYPSO_RAG_AGENT,
-      base_model: CALYPSO_RAG_AGENT,
+      id: DEFAULT_AGENT_MODEL_ID,
+      base_model: DEFAULT_AGENT_MODEL_ID,
       profile_id: null,
       source: "default_policy",
       enabled: true,
@@ -185,9 +185,12 @@ function normalizeCatalog(
     });
   }
 
+  // The discovery surface returns the workspace default first, so trust the
+  // response rather than a constant — that is what keeps this catalog correct
+  // across a model-id rename instead of drifting behind one.
   return {
     models,
-    defaultModel: CALYPSO_RAG_AGENT,
+    defaultModel: models[0]?.id || DEFAULT_AGENT_MODEL_ID,
     fetchedAt: new Date().toISOString(),
     source: "api",
   };
