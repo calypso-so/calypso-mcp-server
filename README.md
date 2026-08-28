@@ -1,8 +1,8 @@
-# Calypso Multimodal RAG MCP Server
+# Calypso MCP Server
 
-**The easiest hosted multimodal RAG MCP server** for Claude Desktop, Cursor, and agent workflows.
+**Hosted multimodal RAG for Claude Desktop, Cursor, and agent workflows — in one `npx` command.**
 
-One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts, diagrams, and images **natively** with verifiable citations.
+Ask questions across PDFs, screenshots, charts, and diagrams, and upload new source material, without running a vector store, a Docker stack, or an OCR pipeline. Answers come back with citations you can check.
 
 [![Smithery](https://img.shields.io/badge/Smithery-calypso--mcp--server-6f42c1)](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server)
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/calypso-so/calypso-mcp-server)](https://archestra.ai/mcp-catalog/calypso-so__calypso-mcp-server)
@@ -13,9 +13,9 @@ One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts
 [![License](https://img.shields.io/github/license/calypso-so/calypso-mcp-server)](./LICENSE)
 [![CI](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/calypso-so/calypso-mcp-server/actions/workflows/ci.yml)
 
-> The easiest way to add **hosted multimodal RAG** to Claude, Cursor, Windsurf, and custom agents.
+> This server is a **Calypso Context** surface — the same knowledge layer that backs Calypso on WhatsApp, exposed to MCP clients. [How the pieces fit →](https://www.calypso.so/#learn)
 
-- **Super simple setup**: `npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-your-key-here`
+- **One-command setup**: `npx -y @calypsohq/multimodal-rag-mcp-server --api-key sk-your-key-here`
 - **True multimodal RAG**: handles text and visuals natively through Gemini File Search
 - **Upload and query**: dedicated tools for durable knowledge files and batch uploads
 - **Multi-turn conversations**: context-aware answers with `/new` reset
@@ -23,11 +23,11 @@ One `npx` command. Gemini File Search-powered. Handles PDFs, screenshots, charts
 
 [GitHub](https://github.com/calypso-so/calypso-mcp-server) | [Docs](https://docs.calypso.so) | [Smithery](https://smithery.ai/servers/multimodal-rag/calypso-mcp-server) | [Official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.calypso-so/multimodal-rag-mcp-server)
 
-Tags: `multimodal-rag`, `easiest-mcp-rag`, `gemini-rag`, `hosted-rag-mcp`, `mcp-server`
+Tags: `multimodal-rag`, `gemini-rag`, `hosted-rag-mcp`, `mcp-server`
 
 Instead of wiring each agent or workflow to a one-off document search stack, use this MCP as the agent-facing entry point to one reusable answer layer: upload source material once, retrieve across text and visual content, and return answers with evidence users can verify.
 
-## Quick Start (Easiest)
+## Quick Start
 
 ```bash
 # One-liner with npx
@@ -44,19 +44,12 @@ Then add the same command to Claude Desktop, Cursor, or Smithery using the confi
 
 ## Why Choose Calypso
 
-Calypso is built for teams that want the easiest hosted multimodal RAG MCP server: no local vector stack, no Docker compose, and no custom OCR or image-processing pipeline before agents can ask grounded questions.
+No local vector store, no Docker Compose, and no separate OCR or vision pipeline before an agent can ask a grounded question. Point the server at a Calypso API key and it discovers your team's agents and knowledge buckets on connect.
 
-| Feature | Calypso | rag-anything-mcp | Pixeltable |
-| --- | --- | --- | --- |
-| **Setup** | 1 npx command (zero infra) | Clone + Python | Docker Compose |
-| **Multimodal** | Native Gemini File Search (text + images, charts, diagrams, PDFs) with no extra vision pipeline | Strong OpenAI vision-based document RAG | Excellent for video, audio, images, and tables |
-| **Hosting** | Fully hosted (self-host option) | Local-first | Local-first |
-| **Operations** | Zero-ops cloud | Requires Python setup | Requires Docker |
-| **Upload tools** | Built-in upload-session single file and batch knowledge tools | Yes | Yes |
-| **Citations / grounding** | Strong evidence trail with retrieval metadata | Yes | Yes |
-| **Best for** | Teams wanting zero-ops hosted multimodal RAG for MCP clients | Local document RAG experiments | Heavy local video/audio/data workflows |
-
-**Start here if you want the easiest hosted multimodal RAG MCP server.**
+- **Zero infrastructure**: one `npx` command; nothing to host or operate.
+- **Multimodal without a second pipeline**: text and visuals are indexed together, so a chart or a screenshot is queryable the same way a paragraph is.
+- **Answers carry evidence**: responses include source references and retrieval metadata.
+- **Read and write**: query knowledge and add to it — files, batches, and websites — from the same server.
 
 ## What you get
 
@@ -324,6 +317,27 @@ Notes:
 - Optional `fileIds` are supported for retrieval-scoped questions. New uploads should use the durable knowledge upload tools and wait for indexing before asking.
 - Use `/new` as the prompt to reset the MCP conversation.
 
+### `calypso-search`
+Searches your knowledge directly and returns matching passages, without asking an agent to compose an answer.
+
+Use it when you want evidence rather than prose — checking whether something is indexed at all, gathering sources before a decision, or letting a calling agent do its own reasoning over the passages.
+
+Notes:
+- Uses `POST /v1/search`.
+- `query` is required.
+- `agent` scopes the search to one agent variant's knowledge; `buckets` narrows it to specific buckets.
+- `maxResults` is clamped to 1–20.
+
+Example:
+
+```json
+{
+  "query": "annual plan refund window",
+  "buckets": ["support-handbook"],
+  "maxResults": 5
+}
+```
+
 ### `calypso-list-buckets`
 Lists buckets for the team tied to the configured Calypso API key.
 
@@ -357,6 +371,27 @@ Example:
 {
   "fileId": "file_123",
   "verify": true
+}
+```
+
+### `calypso-add-website`
+Ingests a website into a knowledge bucket, so page content becomes queryable alongside uploaded files.
+
+Notes:
+- Uses `POST /v1/knowledge/websites`.
+- `url` is required, and so is a destination — one of `bucketIds`, `bucketSlugs`, or `bucket`.
+- Optional `title`, `tagsHint`, and `preferredLanguage` help classify the source.
+- Pass `idempotencyKey` to make a retry safe; it is sent as the `Idempotency-Key` header.
+- Like file uploads, acceptance is not the same as being queryable — the page still has to finish indexing.
+
+Example:
+
+```json
+{
+  "url": "https://example.com/pricing",
+  "bucket": "pricing",
+  "title": "Public pricing page",
+  "idempotencyKey": "pricing-page-2026-08"
 }
 ```
 
@@ -528,3 +563,22 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 ## Tips
 
 - **Start over**: use `/new` to reset the MCP conversation (new `conversation_id` + cleared response chain).
+
+## Version history
+
+| Version | Notes |
+| --- | --- |
+| **3.0.0** | **Breaking.** Removed legacy `calypso-rag-agent` model-id support — an unrecognized id is now an error rather than being rewritten to the canonical family. Documented `calypso-search` and `calypso-add-website`, and fixed `calypso://server-info`, which had been omitting `calypso-add-website`. |
+| **2.4.0** | Renamed the ask tool `calypso-rag-agent` → `calypso-agent`. The model catalog now takes its default from discovery instead of a hardcoded constant. |
+| **2.3.x** | Search release and follow-up fixes. |
+
+See [CHANGELOG.md](CHANGELOG.md) for detail.
+
+### Upgrading to 3.0.0
+
+Two renames landed across 2.4.0 and 3.0.0, and neither is aliased.
+
+- **The ask tool is `calypso-agent`** (was `calypso-rag-agent`). MCP clients pick this up on their next `tools/list`, but any saved prompt, agent instruction, or documentation that names the tool as a string needs updating.
+- **Model ids must be canonical.** `calypso-rag-agent` and `calypso-rag-agent:{id}` are no longer rewritten to `calypso-agent[:{id}]`. Passing one now fails with `Unknown Calypso agent model`, which names `calypso://rag-agent-models` as the place to find valid ids. Read that resource, or omit `model` to use the discovered default.
+
+The `calypso://rag-agent-models` resource URI is deliberately unchanged. It is a published address, not a compatibility shim.

@@ -3,3 +3,5 @@ node_modules
 build
 .env
 dist*
+# Build output — attach to GitHub Releases instead of committing (25 MB per copy)
+server.mcpb
