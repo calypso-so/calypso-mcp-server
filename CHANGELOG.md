@@ -2,6 +2,42 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 2.3.1 - 2026-08-24
+
+### Fixed
+
+- `calypso-create-bucket` / `calypso-create-agent`: every successful create
+  failed client-side with MCP `-32602` because the raw API payload was returned
+  as `structuredContent` and validated strictly against the declared output
+  schema, which the API response has outgrown. The structured part is now
+  projected onto the declared keys; the full payload remains in the text
+  content. Found by a live end-to-end pass.
+- `calypso-upload-files-batch`: `batchIdempotencyKey` is now optional and
+  auto-generated when omitted; pass a stable key to make a retried call replay
+  the same durable batch.
+- `server.json` version re-aligned with `package.json`/`manifest.json` (was
+  stuck behind, which fails the MCP-registry publish workflow's metadata
+  consistency gate).
+- README: replaced the broken Smithery badge (the badge endpoint returns
+  HTTP 500) with a static shield pointing at the same server page.
+
+## 2.3.0 - 2026-08-24
+
+### Added
+
+- `calypso-search` — retrieval-only knowledge search: returns the chunks and
+  sources an agent answer would cite, without a synthesized answer. Scope via
+  agent model id or explicit buckets (ids/slugs, max 5).
+
+## 2.2.0 - 2026-08-20
+
+### Added
+
+- `sourceUrl` on `calypso-upload-file` — server-side URL import for a single
+  durable knowledge file.
+- `calypso-add-website` — one-shot web-page ingestion (crawl + analysis +
+  persist) into bucket-backed knowledge.
+
 ## 2.1.0 - 2026-08-19
 
 ### Added
