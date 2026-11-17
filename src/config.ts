@@ -35,7 +35,36 @@ export const CALYPSO_TOOLS = [
 
 // Model ids are a different namespace from tool names — they only ever looked
 // alike by coincidence, and the 2026-08 rename pulled them apart.
-export const DEFAULT_AGENT_MODEL_ID = "calypso-agent";
+//
+// `elephant-agent` is the canonical family the API advertises since Step 2 of
+// the Elephant rename (2026-11-17). The two earlier families stay accepted by
+// the API, so a saved prompt that names `calypso-agent:x` is folded onto the
+// spelling discovery lists rather than rejected (3.1.0).
+export const DEFAULT_AGENT_MODEL_ID = "elephant-agent";
+export const AGENT_MODEL_FAMILIES = [
+  DEFAULT_AGENT_MODEL_ID,
+  "calypso-agent",
+  "calypso-rag-agent",
+] as const;
+
+/**
+ * Fold a knowledge-agent model id in any accepted family onto the canonical
+ * `elephant-agent[:{agent_id}]` spelling. Anything else (blank, another
+ * product's id, a malformed `family:` with no agent id) is returned trimmed
+ * and unchanged, so the discovery check still decides.
+ */
+export function canonicalAgentModelId(value: string | undefined): string {
+  const modelId = String(value || "").trim();
+  for (const family of AGENT_MODEL_FAMILIES) {
+    if (modelId === family) return DEFAULT_AGENT_MODEL_ID;
+    const prefix = `${family}:`;
+    if (modelId.startsWith(prefix)) {
+      const agentId = modelId.slice(prefix.length).trim();
+      return agentId ? `${DEFAULT_AGENT_MODEL_ID}:${agentId}` : modelId;
+    }
+  }
+  return modelId;
+}
 
 export const DEFAULT_CALYPSO_API_BASE_URL = "https://api.calypso.so/v1";
 

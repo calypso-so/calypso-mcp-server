@@ -2,6 +2,20 @@
 
 All notable changes to `@calypsohq/multimodal-rag-mcp-server` will be documented in this file.
 
+## 3.1.0
+
+### Changed
+
+- **`elephant-agent` is the default model id.** The Calypso API advertises the
+  `elephant-agent[:{agent_id}]` family since Step 2 of the Elephant rename (2026-11-17), so
+  `DEFAULT_AGENT_MODEL_ID` and the discovery fallback follow it. Tool names are unchanged:
+  the ask tool is still `calypso-agent`.
+- **Earlier model-id families keep resolving.** A `model` argument spelled `calypso-agent[:{id}]`
+  or `calypso-rag-agent[:{id}]` is folded onto the canonical spelling before the discovery
+  check (`canonicalAgentModelId` in `config.ts`), so saved prompts from 3.0.0 keep working
+  now that discovery lists `elephant-agent` ids. An id outside those families that discovery
+  does not list still fails with `Unknown Calypso agent model`.
+
 ## 3.0.0
 
 ### Removed

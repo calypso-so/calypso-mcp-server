@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "multimodal-rag-mcp-server",
   "display_name": "Calypso Multimodal RAG MCP",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Calypso RAG MCP server for source-backed answers via the Calypso Responses API.",
   "author": {
     "name": "Calypso"
@@ -20,7 +20,9 @@
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/index.js"],
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
       "env": {
         "CALYPSO_API_KEY": "${user_config.calypsoApiKey}",
         "CALYPSO_API_BASE_URL": "${user_config.calypsoApiBaseUrl}"
@@ -45,6 +47,10 @@
     }
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"]
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
   }
 }

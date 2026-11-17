@@ -62,3 +62,17 @@ test("formatUsage includes command, flags, and environment variables", () => {
   assert.match(usage, /--api-key/);
   assert.match(usage, /CALYPSO_API_BASE_URL/);
 });
+
+test("canonicalAgentModelId folds every accepted family onto elephant-agent", async () => {
+  const { canonicalAgentModelId } = await import("../dist/config.js");
+  for (const family of ["elephant-agent", "calypso-agent", "calypso-rag-agent"]) {
+    assert.equal(canonicalAgentModelId(family), "elephant-agent");
+    assert.equal(canonicalAgentModelId(`${family}:support`), "elephant-agent:support");
+    assert.equal(canonicalAgentModelId(`  ${family}:support  `), "elephant-agent:support");
+  }
+  // Not knowledge-agent ids: returned trimmed and unchanged for discovery to judge.
+  assert.equal(canonicalAgentModelId("gpt-4o"), "gpt-4o");
+  assert.equal(canonicalAgentModelId("calypso-agent:"), "calypso-agent:");
+  assert.equal(canonicalAgentModelId("calypso-agent-foo"), "calypso-agent-foo");
+  assert.equal(canonicalAgentModelId(undefined), "");
+});

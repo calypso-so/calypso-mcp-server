@@ -309,8 +309,8 @@ Direct Calypso agent access.
 
 Notes:
 - It does not auto-route to other personas or agents.
-- It automatically discovers the API key's available `calypso-agent` variants at startup.
-- Use the optional `model` argument to choose a named variant such as `calypso-agent:pricing`.
+- It automatically discovers the API key's available `elephant-agent` model variants at startup.
+- Use the optional `model` argument to choose a named variant such as `elephant-agent:pricing`.
 - Each model variant keeps its own MCP conversation chain, so switching variants does not continue the wrong thread.
 - It uses `POST /v1/responses` instead of `POST /v1/chat/completions`.
 - First turns create a named conversation, and follow-up turns chain with `previous_response_id`.
@@ -500,7 +500,7 @@ Example:
 Read-only server metadata, including package version, API base URL, transport, authentication model, and exposed capabilities.
 
 ### `calypso://rag-agent-models`
-Read-only runtime catalog of team-scoped `calypso-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-agent`.
+Read-only runtime catalog of team-scoped `elephant-agent` model variants discovered from the configured API key, including each variant's active `buckets`, `bucket_ids`, and `missing_bucket_ids`. If discovery is unavailable, this resource falls back to the base `calypso-agent`.
 
 ### `calypso://buckets`
 Read-only runtime list of knowledge buckets for the team tied to the configured API key. Use it to inspect bucket ids/slugs and bucket-store readiness before uploads.
@@ -568,6 +568,7 @@ Operational security notes for API keys, local file reads, uploads, and logging.
 
 | Version | Notes |
 | --- | --- |
+| **3.1.0** | `elephant-agent` is the default model id (the API's canonical family since 2026-11-17); `calypso-agent[:{id}]` and `calypso-rag-agent[:{id}]` arguments fold onto it before the discovery check, so saved prompts keep working. Tool names unchanged. |
 | **3.0.0** | **Breaking.** Removed legacy `calypso-rag-agent` model-id support — an unrecognized id is now an error rather than being rewritten to the canonical family. Documented `calypso-search` and `calypso-add-website`, and fixed `calypso://server-info`, which had been omitting `calypso-add-website`. |
 | **2.4.0** | Renamed the ask tool `calypso-rag-agent` → `calypso-agent`. The model catalog now takes its default from discovery instead of a hardcoded constant. |
 | **2.3.x** | Search release and follow-up fixes. |

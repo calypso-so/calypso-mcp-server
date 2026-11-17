@@ -21,6 +21,7 @@ import {
   CALYPSO_UPLOAD_FILE,
   CALYPSO_UPLOAD_FILES_BATCH,
   type CalypsoRuntimeConfig,
+  canonicalAgentModelId,
 } from "./config.js";
 import {
   getKnowledgeFile,
@@ -225,10 +226,16 @@ export function createCalypsoMcpServer(options: {
 
   function resolveRagModelId(value?: string): string {
     const requested = String(value || "").trim();
-    // Only ids that discovery actually lists are accepted. The legacy
-    // `calypso-rag-agent[:{id}]` family is no longer rewritten to the canonical
-    // one; an unknown id fails loudly below and names the resource to consult.
-    const modelId = requested || currentCatalog.defaultModel;
+    // Only ids that discovery actually lists are accepted. A knowledge-agent id
+    // in an earlier family (`calypso-agent:x`, `calypso-rag-agent:x`) is folded
+    // onto the canonical spelling first, so it matches what discovery lists
+    // since the API started advertising `elephant-agent`; an unknown id fails
+    // loudly below and names the resource to consult.
+    const modelId = requested
+      ? discoveredModelIdSet.has(requested)
+        ? requested
+        : canonicalAgentModelId(requested)
+      : currentCatalog.defaultModel;
     if (!discoveredModelIdSet.has(modelId)) {
       throw new Error(
         `Unknown Calypso agent model \`${modelId}\`. See the calypso://rag-agent-models resource for the current list.`,
@@ -621,7 +628,7 @@ export function createCalypsoMcpServer(options: {
         "answer. Use this when the caller wants raw evidence to reason over.",
         "",
         "Scope defaults to the default Calypso agent; pass `agent` for a named",
-        "variant (calypso-agent:{agent_id}) or `buckets` (ids or slugs,",
+        "variant (elephant-agent:{agent_id}) or `buckets` (ids or slugs,",
         "up to 5) to search specific buckets directly — not both.",
       ].join("\n"),
       inputSchema: {
@@ -631,7 +638,7 @@ export function createCalypsoMcpServer(options: {
           .optional()
           .describe(
             "Agent model id whose retrieval scope to search " +
-              "(calypso-agent or calypso-agent:{agent_id}). " +
+              "(elephant-agent or elephant-agent:{agent_id}). " +
               "Mutually exclusive with buckets.",
           ),
         buckets: z
