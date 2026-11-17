@@ -65,10 +65,20 @@ test("formatUsage includes command, flags, and environment variables", () => {
 
 test("canonicalAgentModelId folds every accepted family onto elephant-agent", async () => {
   const { canonicalAgentModelId } = await import("../dist/config.js");
-  for (const family of ["elephant-agent", "calypso-agent", "calypso-rag-agent"]) {
+  for (const family of [
+    "elephant-agent",
+    "calypso-agent",
+    "calypso-rag-agent",
+  ]) {
     assert.equal(canonicalAgentModelId(family), "elephant-agent");
-    assert.equal(canonicalAgentModelId(`${family}:support`), "elephant-agent:support");
-    assert.equal(canonicalAgentModelId(`  ${family}:support  `), "elephant-agent:support");
+    assert.equal(
+      canonicalAgentModelId(`${family}:support`),
+      "elephant-agent:support",
+    );
+    assert.equal(
+      canonicalAgentModelId(`  ${family}:support  `),
+      "elephant-agent:support",
+    );
   }
   // Not knowledge-agent ids: returned trimmed and unchanged for discovery to judge.
   assert.equal(canonicalAgentModelId("gpt-4o"), "gpt-4o");
